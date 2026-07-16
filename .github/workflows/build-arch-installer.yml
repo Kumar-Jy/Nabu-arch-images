@@ -1,0 +1,377 @@
+name: Build arch installer
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BASE_IMAGE: ghcr.io/${{ github.repository_owner }}/nabu-base
+
+jobs:
+  # ============================================================
+  # Stage 1: Build base container image
+  # ============================================================
+  build-base-image:
+    name: Build base container image
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        run: |
+          OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          VERSION=$(date +'%Y%m%d%H%M%S')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "owner=$OWNER" >> $GITHUB_OUTPUT
+          echo "tag=${{ env.REGISTRY }}/$OWNER/nabu-base:$VERSION" >> $GITHUB_OUTPUT
+          echo "latest=${{ env.REGISTRY }}/$OWNER/nabu-base:latest" >> $GITHUB_OUTPUT
+
+      - name: Build base container image
+        run: |
+          podman build \
+            -t ${{ steps.meta.outputs.tag }} \
+            -t ${{ steps.meta.outputs.latest }} \
+            -f base/Containerfile \
+            base/
+
+      - name: Push base image
+        run: |
+          podman push ${{ steps.meta.outputs.tag }}
+          podman push ${{ steps.meta.outputs.latest }}
+
+      - name: Export bootc binary
+        run: |
+          CID=$(podman create ${{ steps.meta.outputs.latest }})
+          podman cp $CID:/usr/bin/bootc ./bootc
+          podman rm $CID
+
+  # ============================================================
+  # Stage 2: Build Plasma installer
+  # ============================================================
+  build-plasma-installer:
+    name: Build Plasma installer
+    runs-on: ubuntu-24.04-arm
+    needs: build-base-image
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman btrfs-progs pigz arch-install-scripts dosfstools ostree
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build plasma container image
+        run: |
+          podman build \
+            -t ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-plasma:latest \
+            --build-arg BASE_IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-base:latest \
+            -f plasma/Containerfile \
+            plasma/
+
+      - name: Push plasma image
+        run: |
+          podman push ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-plasma:latest
+
+      - name: Export plasma container to Btrfs image
+        env:
+          VARIANT: plasma
+          REGISTRY: ${{ env.REGISTRY }}
+          OWNER: ${{ env.OWNER }}
+        run: bash scripts/build-installer.sh
+      - name: Unmount
+        run: |
+          sudo umount -R ./mountpoint || sudo umount -l ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Export EFI
+        run: |
+          mkdir -p ./mountpoint
+          sudo mount -o loop,subvol=@ ./rootfs.img ./mountpoint/
+          EFI_TGZ=$(find ./mountpoint/ostree -name "efi.tgz" -path "*/opt/nabu/*" 2>/dev/null | head -1)
+          if [ -z "$EFI_TGZ" ]; then
+            echo "Error: efi.tgz not found in rootfs" >&2
+            exit 1
+          fi
+          mkdir -p ./efi-tmp ./efi
+          sudo tar xzf "$EFI_TGZ" -C ./efi-tmp/
+          sudo cp -r ./efi-tmp/EFI/* ./efi/
+          sudo rm -rf ./efi-tmp
+          sudo cp -r ./base/overlay/opt/nabu/efi-template/EFI/* ./efi/
+          sudo chown -R $USER:$USER ./efi/
+          ls -laR ./efi/
+          sudo umount ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Prepare installer artifacts
+        run: |
+          mkdir -p ./image
+          mv ./rootfs.img ./image/
+          if wget -q "https://github.com/kdave/btrfs-progs/releases/download/v7.0/btrfs.box.static-arm" -O ./bin/mkfs.btrfs 2>/dev/null; then
+            chmod +x ./bin/mkfs.btrfs
+          fi
+
+      - name: Download WinPE
+        run: |
+          wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
+
+      - name: Create ESP image
+        run: |
+          truncate -s 300M esp.img
+          mkfs.fat -F 32 esp.img
+          mkdir -p ./esp-mount
+          sudo mount -o loop esp.img ./esp-mount/
+          sudo mkdir -p ./esp-mount/EFI
+          sudo cp -r ./efi/* ./esp-mount/EFI/
+          sudo umount ./esp-mount
+          rmdir ./esp-mount
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nabu-alarm-bootc-plasma-installer
+          path: |
+            bin
+            DBKP
+            efi
+            image
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
+      - name: Upload ESP image
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nabu-alarm-bootc-esp
+          path: ./esp.img
+          retention-days: 90
+          compression-level: 0
+
+  # ============================================================
+  # Stage 3: Build GNOME installer
+  # ============================================================
+  build-gnome-installer:
+    name: Build GNOME installer
+    runs-on: ubuntu-24.04-arm
+    needs: build-base-image
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman btrfs-progs pigz arch-install-scripts dosfstools ostree
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build gnome container image
+        run: |
+          podman build \
+            -t ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-gnome:latest \
+            --build-arg BASE_IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-base:latest \
+            -f gnome/Containerfile \
+            gnome/
+
+      - name: Push gnome image
+        run: |
+          podman push ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-gnome:latest
+
+      - name: Export gnome container to Btrfs image
+        env:
+          VARIANT: gnome
+          REGISTRY: ${{ env.REGISTRY }}
+          OWNER: ${{ env.OWNER }}
+        run: bash scripts/build-installer.sh
+      - name: Unmount
+        run: |
+          sudo umount -R ./mountpoint || sudo umount -l ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Export EFI
+        run: |
+          mkdir -p ./mountpoint
+          sudo mount -o loop,subvol=@ ./rootfs.img ./mountpoint/
+          EFI_TGZ=$(find ./mountpoint/ostree -name "efi.tgz" -path "*/opt/nabu/*" 2>/dev/null | head -1)
+          if [ -z "$EFI_TGZ" ]; then
+            echo "Error: efi.tgz not found in rootfs" >&2
+            exit 1
+          fi
+          mkdir -p ./efi-tmp ./efi
+          sudo tar xzf "$EFI_TGZ" -C ./efi-tmp/
+          sudo cp -r ./efi-tmp/EFI/* ./efi/
+          sudo rm -rf ./efi-tmp
+          sudo cp -r ./base/overlay/opt/nabu/efi-template/EFI/* ./efi/
+          sudo chown -R $USER:$USER ./efi/
+          ls -laR ./efi/
+          sudo umount ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Prepare installer artifacts
+        run: |
+          mkdir -p ./image
+          mv ./rootfs.img ./image/
+          if wget -q "https://github.com/kdave/btrfs-progs/releases/download/v7.0/btrfs.box.static-arm" -O ./bin/mkfs.btrfs 2>/dev/null; then
+            chmod +x ./bin/mkfs.btrfs
+          fi
+
+      - name: Download WinPE
+        run: |
+          wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nabu-alarm-bootc-gnome-installer
+          path: |
+            bin
+            DBKP
+            efi
+            image
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
+  # ============================================================
+  # Stage 4: Upload to Pixeldrain
+  # ============================================================
+  upload-artifacts-to-pixeldrain:
+    name: Upload artifacts to Pixeldrain
+    runs-on: ubuntu-24.04-arm
+    needs:
+      - build-plasma-installer
+      - build-gnome-installer
+    outputs:
+      plasma_url: ${{ steps.upload.outputs.plasma_url }}
+      gnome_url: ${{ steps.upload.outputs.gnome_url }}
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zip jq
+
+      - name: Download Plasma artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: Nabu-alarm-bootc-plasma-installer
+          path: plasma
+
+      - name: Download GNOME artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: Nabu-alarm-bootc-gnome-installer
+          path: gnome
+
+      - name: Zip artifacts
+        run: |
+          cd plasma && zip -r ../Nabu-alarm-bootc-plasma-installer.zip . && cd ..
+          cd gnome && zip -r ../Nabu-alarm-bootc-gnome-installer.zip . && cd ..
+
+      - name: Upload to Pixeldrain
+        id: upload
+        run: |
+          echo "Uploading Plasma artifact..."
+          PLASMA_RES=$(curl -s -T Nabu-alarm-bootc-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+          PLASMA_ID=$(echo "$PLASMA_RES" | jq -r '.id')
+          echo "plasma_url=https://pixeldrain.com/u/$PLASMA_ID" >> $GITHUB_OUTPUT
+
+          echo "Uploading GNOME artifact..."
+          GNOME_RES=$(curl -s -T Nabu-alarm-bootc-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+          GNOME_ID=$(echo "$GNOME_RES" | jq -r '.id')
+          echo "gnome_url=https://pixeldrain.com/u/$GNOME_ID" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # Stage 5: Create release
+  # ============================================================
+  create-release:
+    name: Create release
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    needs:
+      - build-base-image
+      - build-plasma-installer
+      - build-gnome-installer
+      - upload-artifacts-to-pixeldrain
+
+    steps:
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%d.%m.%Y')" >> $GITHUB_OUTPUT
+          echo "date-tag=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: nabu-alarm-atomic-${{ steps.date.outputs.date-tag }}
+          target_commitish: ${{ github.sha }}
+          name: nabu-alarm-atomic ${{ steps.date.outputs.date }}
+          draft: false
+          prerelease: false
+          body: |
+            Built images (bootc/ostree atomic updates)
+              - KDE Plasma
+              - GNOME
+
+            Build date: ${{ steps.date.outputs.date }}
+
+            **Login Credentials:**
+            - Username: `user`
+            - Password: `123456`
+
+            **First Boot:**
+            1. The system will auto-login to the desktop
+            2. Use password `123456` for sudo operations
+            3. Connect to Wi-Fi using NetworkManager (click network icon in system tray)
+
+            **Downloads:**
+            - [Plasma Installer Zip](${{ needs.upload-artifacts-to-pixeldrain.outputs.plasma_url }})
+            - [GNOME Installer Zip](${{ needs.upload-artifacts-to-pixeldrain.outputs.gnome_url }})
+
+            Rootfs images are also available from the artifacts section of the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+

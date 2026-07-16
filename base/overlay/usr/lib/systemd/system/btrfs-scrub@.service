@@ -1,0 +1,9 @@
+[Unit]
+Description=Btrfs scrub on %f
+Documentation=man:btrfs-scrub(8)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/btrfs scrub start -B %f
+Nice=19
+IOSchedulingClass=idle

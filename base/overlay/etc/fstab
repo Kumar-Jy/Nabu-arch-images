@@ -1,0 +1,10 @@
+# /etc/fstab: static file system information.
+#
+# In an ostree/bootc system the root filesystem and /var are managed by the
+# initramfs ostree hook (bind-mounts from the deployment directory).  Only
+# the ESP mount is listed here; snapper subvolume mounts are
+# configured in /etc/snapper/configs/root and created by snapper-setup on
+# first boot. btrfs subvolume mounts are handled by ostree instead.
+#
+# <file system>  <mount point>      <type> <options>                                <dump>  <pass>
+PARTLABEL=esp    /boot/efi/         vfat   fmask=0022,dmask=0022                    0 1

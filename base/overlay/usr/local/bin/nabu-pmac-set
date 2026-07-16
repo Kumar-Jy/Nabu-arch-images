@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -e
+
+if [[ $EUID -ne 0 ]]; then
+  echo "This script must be run as root." >&2
+  exit 1
+fi
+
+serial=$(cat /sys/class/dmi/id/board_serial 2>/dev/null || echo "")
+if [ -z "$serial" ]; then
+  echo "Board serial not found, aborting."
+  exit 1
+fi
+
+hash=$(echo -n "$serial" | sha256sum | awk '{print $1}')
+mac_raw=${hash:0:12}
+mac_bytes=($(echo $mac_raw | sed 's/\(..\)/\1 /g'))
+first_byte=${mac_bytes[0]}
+first_byte_dec=$((16#$first_byte))
+first_byte_dec=$(( (first_byte_dec & 0xFC) | 0x02 ))
+first_byte_hex=$(printf '%02x' $first_byte_dec)
+mac="${first_byte_hex}:${mac_bytes[1]}:${mac_bytes[2]}:${mac_bytes[3]}:${mac_bytes[4]}:${mac_bytes[5]}"
+
+ip link set dev wlan0 address "$mac"
+ip link set dev wlan0 up
+
+echo "Serial: $serial"
+echo "Set WiFi MAC: $mac"

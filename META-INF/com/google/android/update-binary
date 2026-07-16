@@ -1,0 +1,189 @@
+#!/sbin/sh
+# Full-fledged Linux installer for NABU by kumar_jy
+OUTFD=/proc/self/fd/$2;
+ZIPFILE="$3";
+
+ui_print() {
+  if $BOOTMODE; then
+    echo "$1";
+  else
+    echo -e "ui_print $1\nui_print" >> $OUTFD;
+  fi;
+}
+abort() { ui_print " "; ui_print "$1"; umount -lf "$esp_part" "$win_part" 2>/dev/null; exit 1; }
+
+# detect Magisk app/booted flashing
+BOOTMODE=false;
+ps | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
+$BOOTMODE || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
+
+# /dev/tmp is safe for both booted and recovery installs
+tmp=/dev/tmp/install;
+rm -rf "$tmp";
+mkdir -p "$tmp";
+
+# set variables for the installation
+boot_part=/dev/block/bootdevice/by-name/boot;
+part=/dev/block/by-name;
+esp_part=$part/esp;
+win_part=$part/win;
+linux_part=$part/linux;
+cust_part=$part/cust;
+zext="$tmp/bin/7zzs";
+mke2fs="$tmp/bin/mke2fs";
+btrfs="$tmp/bin/btrfs";
+mkfs_btrfs="$tmp/bin/mkfs.btrfs";
+mkfs.fat="$tmp/bin/mkfs.fat";
+bcdctl="$tmp/bin/bcdctl";
+BCD="$tmp/esp/EFI/Microsoft/Boot/BCD";
+
+unzip -o "$ZIPFILE" "bin/*" -d "$tmp" || abort "Failed to extract bin";
+chmod -R 0777 "$tmp";
+
+# boxbtrfs: create symlinks for all btrfs commands
+if [ -f "$btrfs" ] && [ ! -f "$mkfs_btrfs" ]; then
+  for cmd in mkfs.btrfs btrfs-scrub btrfs-check btrfs-image btrfs-zero-log btrfs-debug-tree btrfs-map-tree btrfs-convert btrfs-find-root btrfs-restore btrfs-snapshot btrfs-subvolume btrfs-property btrfs-inspect-dump-tree btrfs-inspect-dump-super btrfs-inspect-minimal; do
+    ln -sf btrfs "$tmp/bin/$cmd" 2>/dev/null || true;
+  done;
+fi;
+
+ui_print "---------------------------------------------";
+ui_print "              Linux installation             ";
+ui_print "---------------------------------------------";
+ui_print " ";
+ui_print "Checking linux partition device: $linux_part";
+if [ ! -e "$linux_part" ]; then
+  abort "Linux partition device not found: $linux_part";
+fi;
+if mount | grep -q " $linux_part "; then
+  ui_print "Linux partition $linux_part is mounted, unmounting...";
+  umount -lf "$linux_part" || abort "Failed to unmount linux partition $linux_part";
+fi;
+blockdev --setrw "$linux_part";
+ui_print "Formatting and flashing Linux image";
+
+if [ -x "$mkfs_btrfs" ]; then
+  $mkfs_btrfs -f "$linux_part" || abort "Failed to format linux partition";
+else
+  $mke2fs -t ext4 -F "$linux_part" || abort "Failed to format linux partition";
+fi;
+
+$zext e -so "$ZIPFILE" "image/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || abort "Failed to dump rootfs image";
+
+
+ui_print "Done flashing rootfs!";
+
+ui_print "---------------------------------------------";
+ui_print "             Boot Configuration              ";
+ui_print "---------------------------------------------";
+ui_print " ";
+mkdir -p "$tmp/esp";
+
+if mount | grep -q "$esp_part"; then
+  ui_print "ESP partition is already mounted, forcing unmount...";
+  umount -lf "$esp_part" || abort "Failed to unmount the ESP partition";
+fi;
+mount "$esp_part" "$tmp/esp" || abort "Failed to mount ESP partition";
+
+ui_print "Verifying present bootloader configuration";
+if [ -f $BCD ] && ! $bcdctl --check $BCD 2>/dev/null | grep -q "testsigning";
+then
+  ui_print "Secure Boot configuration detected. Proceeding to disable Secure Boot.";
+  umount -lf "$win_part" 2>/dev/null;
+  mkdir -p "$tmp/win" && mount.ntfs "$win_part" "$tmp/win" || abort "Failed to mount Windows";
+  mkdir -p "$tmp/win/installer/efi";
+  unzip -o "$ZIPFILE" "installer/*" -d "$tmp/win" || abort "Failed to extract installer files";
+  unzip -o "$ZIPFILE" "efi/*" -d "$tmp/win/installer" || abort "Failed to extract installer into Windows";
+  umount -lf "$esp_part" && $mkfs.fat -F32 -s1 "$esp_part" -n ESPNABU 2>/dev/null;
+  dd if="$esp_part" of=/sdcard/esp_backup.img bs=64M || abort "Failed to backup esp image";
+  dd if="$tmp/win/installer/pe.img" of="$esp_part" bs=64M || abort "Failed to dump pe image";
+else
+  ui_print "Un-secure boot configuration found";
+  for i in "$tmp"/esp/[eE][fF][iI]/*; do
+    [ -e "$i" ] || continue; case ${i##*/} in [mM][iI][cC][rR][oO][sS][oO][fF][tT]) ;; *) rm -rf -- "$i";; esac
+  done
+  mkdir -p "$tmp/esp/EFI"
+  unzip -o "$ZIPFILE" "efi/*" -d "$tmp/esp" || abort "Failed to extract efi"
+fi;
+
+# If there is separate boot.img need to be flashed
+unzip -o "$ZIPFILE" "image/boot.img" -d "$tmp" 2>/dev/null;
+if [ ! -f "$tmp/image/boot.img" ]; then
+  ui_print "No separate boot.img found, skipping...";
+else
+  umount -lf "$cust_part" 2>/dev/null;
+  "$mke2fs" -t ext4 -F "$cust_part" || abort "Failed to format cust partition";
+  dd if="$tmp/image/boot.img" of="$cust_part" || abort "Failed to flash boot.img to cust partition!";
+fi;
+
+umount -lf "$esp_part" "$win_part" 2>/dev/null;
+ui_print " ";
+ui_print "Boot configuration setup completed!";
+
+ui_print "---------------------------------------------";
+ui_print "           DBKP UEFI installation            ";
+ui_print "---------------------------------------------";
+ui_print " ";
+
+# modified from the TWRP A/B Installer Backend by osm0sis, Dees_Troy and topjohnwu
+# target partition without the slot suffix
+target=$boot_part;
+
+name=$(basename $target);
+
+ui_print "Unpacking the DBKP installer...";
+
+unzip -o "$ZIPFILE" "DBKP/*" -d "$tmp" || abort "Failed to extract DBKP!";
+
+cd "$tmp/DBKP";
+uefipayload=`(ls *_EFI.fd) 2>/dev/null`;
+dbkpcfg=`(ls DualBoot.*.cfg) 2>/dev/null`;
+shellcode=`(ls ShellCode.*.bin) 2>/dev/null`;
+[ "$uefipayload" ] || abort "No UEFI payload found in zip!";
+[ "$dbkpcfg" ] || abort "No DBKP config found in zip!";
+[ "$shellcode" ] || abort "No DBKP shellcode found in zip!";
+
+tool="$tmp/DBKP/magiskboot";
+patcher="$tmp/DBKP/DualBootKernelPatcher";
+chmod 755 "$tool";
+chmod 755 "$patcher";
+
+backuppath="/sdcard/boot_backup";
+slot=$(getprop ro.boot.slot_suffix);
+ui_print " ";
+ui_print "Current slot: $slot.";
+
+# if [ "$slot" ]; then
+  if [ "$uefipayload" ]; then
+    ui_print "Running image patcher on $name$slot...";
+    dd if="$target$slot" of=boot.img || abort "Failed to dump image!";
+
+    ui_print "Backing up original boot$slot.img...";
+    rm -f "$backuppath$slot.img";
+    cp -f boot.img "$backuppath$slot.img";
+    ui_print "Original boot$slot backed up to $backuppath$slot.img!";
+
+    $tool unpack -h boot.img || abort "Failed to unpack image!";
+
+    $patcher kernel $uefipayload patchedKernel $dbkpcfg $shellcode || abort "Failed to patch the kernel";
+    mv patchedKernel kernel;
+
+    $tool repack boot.img || abort "Failed to repack image!";
+    $tool cleanup;
+  fi;
+# else
+#   ui_print "Failed to get current slot!";
+#   abort "Exiting...";
+# fi;
+
+blockdev --setrw "$target$slot";
+cat new-boot.img /dev/zero > "$target$slot" 2>/dev/null || true;
+rm -f new-boot.img;
+
+if [ "$uefipayload" ]; then
+  ui_print " ";
+  ui_print "Image patching complete!";
+fi;
+
+ui_print " ";
+ui_print "Done flashing EFI!";

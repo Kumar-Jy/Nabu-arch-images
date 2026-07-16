@@ -1,0 +1,168 @@
+name: Arch repo
+
+on:
+  workflow_dispatch:
+
+env:
+  RODRIGUEZST_URL: https://github.com/rodriguezst/arch-repo/releases/download/aarch64
+  NABU_ALARM_URL: https://nabu-alarm.github.io/repo
+
+jobs:
+  build-repo:
+    name: Build pacman repository
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman gnupg
+          # Install GitHub CLI
+          (type -p wget >/dev/null || sudo apt-get install wget -y) \
+            && sudo mkdir -p -m 755 /etc/apt/keyrings \
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && sudo apt update \
+            && sudo apt install gh -y
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.REPO_GPG_KEY_ID }}
+        run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          gpgconf --reload gpg-agent
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-keys
+
+      - name: Setup repo structure
+        run: |
+          mkdir -p repo/aarch64
+          cp repo/nabu-repo.asc repo/aarch64/ 2>/dev/null || true
+
+      - name: Fetch packages from rodriguezst
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          echo "Fetching packages from rodriguezst/arch-repo..."
+          gh release list -R rodriguezst/arch-repo --json tagName -q '.[].tagName' 2>/dev/null | while read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "  Release: $tag"
+            gh release download "$tag" -R rodriguezst/arch-repo \
+              --pattern "*.pkg.tar.zst" \
+              --pattern "*.pkg.tar.xz" \
+              --pattern "*.sig" \
+              --dir . 2>/dev/null || true
+          done
+          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+
+      - name: Fetch packages from nabu-alarm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          echo "Fetching packages from nabu-alarm/repo..."
+          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db.tar.gz" -O aarch64-nabu-alarm.db.tar.gz 2>/dev/null || true
+          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db" -O aarch64-nabu-alarm.db 2>/dev/null || true
+
+          if [ -f aarch64-nabu-alarm.db.tar.gz ]; then
+            mkdir -p /tmp/nabu-alarm-db
+            tar xzf aarch64-nabu-alarm.db.tar.gz -C /tmp/nabu-alarm-db 2>/dev/null || true
+            find /tmp/nabu-alarm-db -name "desc" -exec grep -A1 '%FILENAME%' {} \; | \
+              grep -v '%FILENAME%' | grep -v '^--$' | sort -u > /tmp/pkg-list.txt
+            rm -rf /tmp/nabu-alarm-db aarch64-nabu-alarm.db*
+
+            while read -r filename; do
+              [ -z "$filename" ] && continue
+              echo "  Fetching $filename..."
+              wget -q "${NABU_ALARM_URL}/aarch64/${filename}" 2>/dev/null || \
+                echo "  Warning: Could not fetch $filename"
+            done < /tmp/pkg-list.txt
+          fi
+          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+
+      - name: Build bootc package
+        run: |
+          mkdir -p repo/aarch64
+          podman run --rm -v "$(pwd)/packages/bootc:/work" -w /work menci/archlinuxarm:base \
+            sh -c "
+              sed -i '/^#DisableSandbox/s/^#//' /etc/pacman.conf
+              echo 'DisableSandbox' >> /etc/pacman.conf
+              pacman-key --init
+              pacman-key --populate archlinuxarm
+              pacman -Syu --noconfirm
+              pacman -S --noconfirm base-devel rust cargo
+              useradd -m builder
+              chown -R builder:builder /work
+              su builder -c 'cd /work && makepkg -s --noconfirm --skipchecksums'
+              cp *.pkg.tar.zst /work/../aarch64/ 2>/dev/null || true
+            "
+
+      - name: Re-sign packages
+        run: |
+          cd repo/aarch64
+          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
+          shopt -s nullglob
+          for pkg in *.pkg.tar.zst *.pkg.tar.xz; do
+            [ -f "$pkg" ] || continue
+            echo "Signing $pkg..."
+            gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$GPG_KEY_ID" \
+              --detach-sign --output "${pkg}.sig" "$pkg"
+          done
+
+      - name: Create pacman database
+        run: |
+          cd repo/aarch64
+          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
+          rm -f nabu.db* nabu.files*
+          # Use podman to run repo-add in an Arch Linux environment
+          podman run --rm -v "$(pwd):/work" -w /work menci/archlinuxarm:base \
+            sh -c "sed -i '/^#DisableSandbox/s/^#//' /etc/pacman.conf && echo 'DisableSandbox' >> /etc/pacman.conf && pacman-key --init && pacman-key --populate && pacman -Syu --noconfirm && pacman -S --noconfirm pacman-contrib && shopt -s nullglob && repo-add nabu.db.tar.gz *.pkg.tar.zst *.pkg.tar.xz" || true
+          
+          if [ ! -f nabu.db.tar.gz ]; then
+            touch nabu.db.tar.gz
+          fi
+          
+          # Sign database files on host (GPG is configured here)
+          for db in nabu.db.tar.gz nabu.files.tar.gz; do
+            [ -f "$db" ] && gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$GPG_KEY_ID" \
+              --detach-sign --output "${db}.sig" "$db"
+          done
+
+      - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          # Remove old release and tag
+          gh release delete repo --yes 2>/dev/null || true
+          git push --delete origin repo 2>/dev/null || true
+          
+          # Create new release and upload all assets
+          shopt -s nullglob
+          echo "Creating release and uploading assets..."
+          ASSETS=(
+            nabu.db
+            nabu.db.tar.gz
+            nabu.db.tar.gz.sig
+            nabu.files
+            nabu.files.tar.gz
+            nabu.files.tar.gz.sig
+            *.pkg.tar.xz
+            *.pkg.tar.xz.sig
+          )
+          [ -f nabu-repo.asc ] && ASSETS+=(nabu-repo.asc)
+          gh release create repo \
+            --title "Pacman Repository" \
+            --notes "Automated build of the nabu pacman repository" \
+            "${ASSETS[@]}"

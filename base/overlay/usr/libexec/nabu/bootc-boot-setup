@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# bootc-boot-setup: Install and configure systemd-boot on the ESP
+# Runs at first boot and after bootc deployments to keep the ESP in sync
+set -euo pipefail
+
+ESP="/boot/efi"
+LOADER_CONF="$ESP/loader/loader.conf"
+ENTRIES_DIR="$ESP/loader/entries"
+
+echo "Setting up systemd-boot on ESP..."
+
+# Ensure ESP is mounted
+if ! findmnt -M "$ESP" > /dev/null 2>&1; then
+    mkdir -p "$ESP"
+    if ! findmnt -M "$ESP" > /dev/null 2>&1; then
+        echo "ESP not mounted at $ESP, skipping boot setup (expected during image build)" >&2
+        exit 0
+    fi
+fi
+
+# Create loader.conf if missing
+if [ ! -f "$LOADER_CONF" ]; then
+    mkdir -p "$ESP/loader"
+    cat > "$LOADER_CONF" << 'EOF'
+default @saved
+timeout 5
+console-mode max
+editor no
+EOF
+    echo "Created $LOADER_CONF"
+fi
+
+# Create entries directory if missing
+mkdir -p "$ENTRIES_DIR"
+
+# Remove stale entries and regenerate from detected UKIs
+rm -f "$ENTRIES_DIR"/*.conf 2>/dev/null || true
+
+found_entries=0
+
+# Scan for UKI files in EFI/arch/
+for uki in "$ESP"/EFI/arch/*.efi; do
+    [ -f "$uki" ] || continue
+    basename_uki="$(basename "$uki" .efi)"
+
+    # Skip fallback UKIs for entry purposes (systemd-boot uses them automatically)
+    case "$basename_uki" in
+        *-fallback) continue ;;
+    esac
+
+    entry_name="${basename_uki}"
+    cat > "$ENTRIES_DIR/${entry_name}.conf" << EOF
+title   Arch Linux (Nabu)
+version ${entry_name}
+efi     /EFI/arch/${basename_uki}.efi
+EOF
+    echo "Created boot entry: ${entry_name}"
+    found_entries=$((found_entries + 1))
+done
+
+# If no UKI entries found, check for plain kernels
+if [ "$found_entries" -eq 0 ]; then
+    for vmlinuz in "$ESP"/vmlinuz-linux-nabu "$ESP"/vmlinuz-linux; do
+        [ -f "$vmlinuz" ] || continue
+        kver="$(basename "$vmlinuz" | sed 's/vmlinuz-//')"
+        initrd="$ESP/initramfs-${kver}.img"
+        [ -f "$initrd" ] || initrd="$ESP/initramfs-linux-nabu.img"
+
+        cat > "$ENTRIES_DIR/${kver}.conf" << EOF
+title   Arch Linux (${kver})
+version ${kver}
+linux   /$(basename "$vmlinuz")
+initrd  /$(basename "$initrd")
+options root=PARTLABEL=linux ro quiet
+EOF
+        echo "Created boot entry: ${kver}"
+        found_entries=$((found_entries + 1))
+    done
+fi
+
+if [ "$found_entries" -eq 0 ]; then
+    echo "Warning: No bootable entries found on ESP" >&2
+fi
+
+# Set default if only one entry
+if [ "$found_entries" -eq 1 ]; then
+    single_entry="$(ls "$ENTRIES_DIR"/*.conf 2>/dev/null | head -1)"
+    if [ -n "$single_entry" ]; then
+        title="$(grep '^title ' "$single_entry" | sed 's/^title *//')"
+        bootctl set-default "$(basename "$single_entry" .conf)" 2>/dev/null || true
+    fi
+fi
+
+echo "systemd-boot setup complete. Found ${found_entries} boot entry(ies)."

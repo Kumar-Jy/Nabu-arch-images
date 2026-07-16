@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+chown -R sddm:sddm /var/lib/sddm/.config/ 2>/dev/null || true
+chown -R user:user /var/home/user/ 2>/dev/null || true
+
+# Ensure Flathub remote is available system-wide
+flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true

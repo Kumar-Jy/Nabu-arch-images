@@ -1,0 +1,33 @@
+ARG BASE_IMAGE=ghcr.io/nabu-alarm/nabu-base:latest
+FROM ${BASE_IMAGE}
+
+LABEL containers.bootc="1"
+LABEL ostree.bootable="true"
+
+# --- Install Plasma Desktop + dependencies ---
+RUN set -eux; \
+    pacman -Syu --noconfirm; \
+    pacman -S --noconfirm \
+        xorg-xwayland qt6-wayland \
+        upower bluedevil breeze breeze-gtk discover drkonqi \
+        kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons \
+        kglobalacceld kinfocenter kmenuedit kpipewire \
+        kscreen kscreenlocker ksystemstats kwallet-pam kwayland kwin \
+        layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities \
+        plasma-activities-stats plasma-browser-integration plasma-desktop plasma-disks \
+        plasma-firewall plasma-integration plasma-nm plasma-pa plasma-systemmonitor \
+        plasma-vault plasma-workspace plasma-workspace-wallpapers \
+        polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm \
+        spectacle systemsettings xdg-desktop-portal xdg-desktop-portal-kde pipewire pipewire-pulse \
+        noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak \
+        xdg-user-dirs; \
+    flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
+    pacman -Scc --noconfirm
+
+# --- Enable SDDM + auto-login ---
+RUN systemctl enable sddm || true; \
+    mkdir -p /etc/sddm.conf.d; \
+    printf '[Autologin]\nUser=user\nSession=plasma\n' > /etc/sddm.conf.d/autologin.conf
+
+# --- Apply DE overlay ---
+ADD overlay/ /
