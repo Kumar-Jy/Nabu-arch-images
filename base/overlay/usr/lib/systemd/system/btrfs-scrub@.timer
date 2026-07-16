@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly Btrfs scrub timer
+
+[Timer]
+OnCalendar=monthly
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

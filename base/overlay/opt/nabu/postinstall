@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -u
+set -e
+SCRIPTPATH="$(
+  cd -- "$(dirname "$0")" >/dev/null 2>&1
+  pwd -P
+)"
+ESPPATH="/boot/efi"
+USERGROUPS=("wheel")
+USERSHELL="/bin/bash"
+
+if [[ $EUID -ne 0 ]]; then
+  echo "This script must be run as root" >&2
+  exit 1
+fi
+
+extract_efi() {
+  [ ! -d "$ESPPATH" ] && {
+    echo "$ESPPATH not exists"
+    exit 1
+  }
+  [[ $(findmnt -M "$ESPPATH") ]] || {
+    echo "$ESPPATH not mouted"
+    exit 1
+  }
+  if ! find "$ESPPATH" -maxdepth 0 -empty | read -r; then
+    echo "ESP isn't empty. Backing up"
+    tar czf "$SCRIPTPATH/esp-backup.tgz" -C "$ESPPATH" .
+    echo "Backup created at $SCRIPTPATH/esp-backup.tgz"
+    rm -rf "${ESPPATH:?}"/*
+    echo "Cleaned ESP"
+  fi
+  tar xzf "$SCRIPTPATH/efi.tgz" -C "$ESPPATH"
+  echo "Unpacked new boot files"
+  return 0
+}
+
+setup_user() {
+  if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 setup-user [username] [password]"
+    return 1
+  fi
+
+  local username
+  local password
+  username="$1"
+  password="$2"
+
+  if [[ ! "$username" =~ ^[a-zA-Z][a-zA-Z0-9_-]{0,31}$ ]]; then
+    echo "Error: Invalid username. Allowed: a-z, 0-9, _, -; max 32 chars."
+    return 1
+  fi
+
+  if [[ ${#password} -lt 1 ]]; then
+    echo "Error: Password cannot be empty."
+    return 1
+  fi
+
+  useradd -m -s "$USERSHELL" "$username"
+  usermod "$username" -aG "${USERGROUPS[@]}"
+  echo "${username}:${password}" | chpasswd
+  echo "Added user $username"
+  return 0
+}
+
+subcommand="${1:-}"
+case "$subcommand" in
+extract-efi)
+  shift
+  extract_efi
+  exit 0
+  ;;
+
+setup-user)
+  shift
+  setup_user "$@"
+  exit 0
+  ;;
+"")
+  echo "No subcommand provided."
+  echo "Usage: $0 {extract-efi|setup-user}"
+  exit 1
+  ;;
+*)
+  echo "Unknown subcommand: $subcommand"
+  echo "Usage: $0 {extract-efi|setup-user}"
+  exit 1
+  ;;
+esac

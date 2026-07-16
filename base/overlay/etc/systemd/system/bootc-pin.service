@@ -1,0 +1,11 @@
+[Unit]
+Description=Pin current bootc deployment to prevent garbage collection
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ostree admin pin 0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

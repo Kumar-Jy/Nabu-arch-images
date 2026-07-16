@@ -1,0 +1,134 @@
+name: Arch repo
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+  push:
+    branches: [test-atomic]
+    paths:
+      - 'repo/**'
+      - 'base/Containerfile'
+
+env:
+  RODRIGUEZST_URL: https://github.com/rodriguezst/arch-repo/releases/download/aarch64
+  NABU_ALARM_URL: https://nabu-alarm.github.io/repo
+
+jobs:
+  build-repo:
+    name: Build pacman repository
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pacman-contrib gnupg
+          # Install GitHub CLI
+          (type -p wget >/dev/null || sudo apt-get install wget -y) \
+            && sudo mkdir -p -m 755 /etc/apt/keyrings \
+            && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+            && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && sudo apt update \
+            && sudo apt install gh -y
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.REPO_GPG_KEY_ID }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-keys
+
+      - name: Setup repo structure
+        run: |
+          mkdir -p repo/aarch64
+          cp repo/nabu-repo.asc repo/aarch64/ 2>/dev/null || true
+
+      - name: Fetch packages from rodriguezst
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          echo "Fetching packages from rodriguezst/arch-repo..."
+          # List all release assets and download .pkg.tar.zst and .pkg.tar.xz files
+          gh release list -R rodriguezst/arch-repo --limit 5 2>/dev/null | while read -r tag rest; do
+            echo "  Release: $tag"
+            gh release download "$tag" -R rodriguezst/arch-repo \
+              --pattern "*.pkg.tar.zst" \
+              --pattern "*.pkg.tar.xz" \
+              --pattern "*.sig" \
+              --dir . 2>/dev/null || true
+          done
+          echo "Downloaded files:"
+          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+
+      - name: Fetch packages from nabu-alarm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          echo "Fetching packages from nabu-alarm/repo..."
+          # This is a GitHub Pages repo, fetch the database
+          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db.tar.gz" -O aarch64-nabu-alarm.db.tar.gz 2>/dev/null || true
+          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db" -O aarch64-nabu-alarm.db 2>/dev/null || true
+
+          if [ -f aarch64-nabu-alarm.db.tar.gz ]; then
+            # Extract package list from the database
+            mkdir -p /tmp/nabu-alarm-db
+            tar xzf aarch64-nabu-alarm.db.tar.gz -C /tmp/nabu-alarm-db 2>/dev/null || true
+            # Get all package filenames
+            find /tmp/nabu-alarm-db -name "desc" -exec grep -A1 '%FILENAME%' {} \; | \
+              grep -v '%FILENAME%' | grep -v '^--$' | sort -u > /tmp/pkg-list.txt
+            rm -rf /tmp/nabu-alarm-db aarch64-nabu-alarm.db*
+
+            # Download each package
+            while read -r filename; do
+              [ -z "$filename" ] && continue
+              echo "  Fetching $filename..."
+              wget -q "${NABU_ALARM_URL}/aarch64/${filename}" 2>/dev/null || \
+                echo "  Warning: Could not fetch $filename"
+            done < /tmp/pkg-list.txt
+          fi
+          echo "Downloaded files:"
+          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+
+      - name: Re-sign packages
+        run: |
+          cd repo/aarch64
+          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
+          # Re-sign all packages
+          for pkg in *.pkg.tar.zst *.pkg.tar.xz 2>/dev/null; do
+            [ -f "$pkg" ] || continue
+            echo "Signing $pkg..."
+            gpg --batch --yes --local-user "$GPG_KEY_ID" \
+              --detach-sign --output "${pkg}.sig" "$pkg"
+          done
+
+      - name: Create pacman database
+        run: |
+          cd repo/aarch64
+          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
+          # Remove old database files
+          rm -f aarch64.db* aarch64.files*
+          # Create new database
+          repo-add --sign --key "$GPG_KEY_ID" aarch64.db.tar.gz *.pkg.tar.zst *.pkg.tar.xz 2>/dev/null || true
+          # If repo-add failed (no packages), create empty database
+          if [ ! -f aarch64.db.tar.gz ]; then
+            touch aarch64.db.tar.gz
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo/aarch64
+          destination_dir: aarch64
+          keep_files: true
+          force_orphan: false

@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+chown -R gdm:gdm /var/lib/gdm/.config/

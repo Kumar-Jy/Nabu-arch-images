@@ -1,0 +1,50 @@
+# Maintainer: Kumar-Jy
+
+pkgname=bootc
+pkgver=1.16.3
+pkgrel=1
+pkgdesc="Boot and update controller for bootc container images"
+arch=('aarch64')
+url="https://github.com/bootc-dev/bootc"
+license=('LGPL-2.1-only' 'Apache-2.0')
+depends=(
+  'glib2' 'openssl' 'ostree' 'zlib' 'zstd'
+  'systemd-libs' 'glibc'
+)
+makedepends=('cargo' 'make' 'pkgconf' 'rust')
+options=('!lto')
+source=("https://github.com/bootc-dev/bootc/releases/download/v${pkgver}/bootc-${pkgver}.tar.zstd")
+sha256sums=('SKIP')
+
+build() {
+  cd "${srcdir}/bootc-${pkgver}"
+  cargo build --release --bins 2>&1
+}
+
+package() {
+  cd "${srcdir}/bootc-${pkgver}"
+
+  install -Dm0755 target/release/bootc "${pkgdir}/usr/bin/bootc"
+  install -Dm0755 target/release/system-reinstall-bootc "${pkgdir}/usr/bin/system-reinstall-bootc"
+  install -Dm0755 target/release/bootc-initramfs-setup "${pkgdir}/usr/lib/bootc/initramfs-setup"
+  install -Dm0755 crates/cli/bootc-generator-stub \
+    "${pkgdir}/usr/lib/systemd/system-generators/bootc-systemd-generator"
+
+  install -d "${pkgdir}/usr/libexec/libostree/ext"
+  ln -sf ../../bin/bootc "${pkgdir}/usr/libexec/libostree/ext/ostree-container"
+  ln -sf ../../bin/bootc "${pkgdir}/usr/libexec/libostree/ext/ostree-ima-sign"
+  ln -sf ../../bin/bootc "${pkgdir}/usr/libexec/libostree/ext/ostree-provisional-repair"
+
+  install -d "${pkgdir}/usr/lib/bootc/bound-images.d"
+  install -d "${pkgdir}/usr/lib/bootc/kargs.d"
+  install -d "${pkgdir}/usr/lib/bootc/install"
+
+  install -Dm0644 systemd/*.service systemd/*.timer systemd/*.path systemd/*.target \
+    -t "${pkgdir}/usr/lib/systemd/system/"
+
+  install -Dm0644 -t "${pkgdir}/usr/lib/dracut/modules.d/51bootc/" \
+    crates/initramfs/dracut/module-setup.sh 2>/dev/null || true
+
+  install -Dm0644 crates/initramfs/bootc-root-setup.service \
+    "${pkgdir}/usr/lib/systemd/system/bootc-root-setup.service" 2>/dev/null || true
+}
