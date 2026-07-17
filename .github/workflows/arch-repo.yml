@@ -2,13 +2,6 @@ name: Arch repo
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * *'
-  push:
-    branches: [test-atomic]
-    paths:
-      - 'repo/**'
-      - 'base/Containerfile'
 
 env:
   RODRIGUEZST_URL: https://github.com/rodriguezst/arch-repo/releases/download/aarch64
