@@ -1,0 +1,168 @@
+FROM docker.io/menci/archlinuxarm:latest
+
+LABEL containers.bootc="1"
+LABEL ostree.bootable="true"
+
+# --- Layer 1: System + pacman setup ---
+RUN set -eux; \
+    sed -i 's/^[[:space:]]*NoExtract/#&/' /etc/pacman.conf; \
+    sed -i 's/^#ParallelDownloads/ParallelDownloads/g' /etc/pacman.conf; \
+    sed -i 's/^#DisableDownloadTimeout/DisableDownloadTimeout/g' /etc/pacman.conf; \
+    sed -i 's/^#DisableSandboxFilesystem/DisableSandboxFilesystem/g' /etc/pacman.conf; \
+    sed -i 's/^#DisableSandboxSyscalls/DisableSandboxSyscalls/g' /etc/pacman.conf; \
+    printf '%s\n' \
+        'Server = http://mirror.archlinuxarm.org/$arch/$repo' \
+        'Server = http://eu.mirror.archlinuxarm.org/$arch/$repo' \
+        'Server = http://us.mirror.archlinuxarm.org/$arch/$repo' \
+        > /etc/pacman.d/mirrorlist; \
+    printf '%s\n' '#!/bin/bash' 'set -euo pipefail' 'for i in 1 2 3; do pacman --disable-download-timeout "$@" && break || sleep 10; done' > /usr/local/bin/pacman-retry; \
+    chmod +x /usr/local/bin/pacman-retry; \
+    pacman-retry -Syu --noconfirm; \
+    pacman-retry -S --noconfirm \
+        base glibc \
+        mkinitcpio ukify \
+        ostree skopeo \
+        networkmanager bluez bluez-utils \
+        sudo podman distrobox shadow libcap \
+        polkit; \
+    sed -i 's/^#\(.*UTF-8.*\)/\1/' /etc/locale.gen; \
+    locale-gen; \
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf; \
+    chmod u+s /usr/bin/newuidmap; \
+    chmod u+s /usr/bin/newgidmap; \
+    echo "user:100000:65536" > /etc/subuid; \
+    echo "user:100000:65536" > /etc/subgid; \
+    pacman -Scc --noconfirm
+
+# --- Layer 2: Nabu repos + kernel + firmware ---
+RUN set -eux; \
+    pacman-key --init; \
+    pacman-key --populate archlinuxarm; \
+    printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf; \
+    pacman-key --populate; \
+    pacman-retry -R --noconfirm linux-aarch64 || true; \
+    pacman-retry -Syu --noconfirm; \
+    pacman-retry -S --noconfirm \
+        linux-nabu \
+        linux-firmware-xiaomi-nabu \
+        alsa-ucm-conf-xiaomi-nabu \
+        tqftpserv rmtfs; \
+    systemctl enable tqftpserv rmtfs || true; \
+    kernver=$(ls /usr/lib/modules/ | sort -V | tail -1); \
+    if [ -n "$kernver" ]; then \
+        for src in "/boot/vmlinux-${kernver}" "/boot/vmlinuz-${kernver}" "/boot/vmlinuz-linux-nabu" "/boot/Image"; do \
+            if [ -f "$src" ]; then \
+                cp "$src" "/usr/lib/modules/$kernver/vmlinuz"; \
+                break; \
+            fi; \
+        done; \
+    fi; \
+    pacman -Scc --noconfirm
+
+# --- Layer 2b: Install bootc (prebuilt package or compile from source) ---
+RUN set -eux; \
+    if pacman -S --noconfirm bootc 2>/dev/null; then \
+        echo "bootc installed from pacman repo"; \
+    else \
+        echo "bootc package not found, compiling from source..."; \
+        pacman -S --noconfirm --needed \
+            rust cargo make pkgconf glib2 openssl zlib zstd; \
+        cd /tmp; \
+        curl -fsSL "https://github.com/bootc-dev/bootc/releases/download/v1.16.3/bootc-1.16.3.tar.zstd" \
+            -o src.tar.zstd; \
+        tar --zstd -xf src.tar.zstd; \
+        cd bootc-1.16.3; \
+        cargo build --release --bins 2>&1; \
+        install -Dm0755 target/release/bootc /usr/bin/bootc; \
+        install -Dm0755 target/release/system-reinstall-bootc /usr/bin/system-reinstall-bootc; \
+        install -Dm0755 target/release/bootc-initramfs-setup /usr/lib/bootc/initramfs-setup; \
+        install -Dm0755 crates/cli/bootc-generator-stub \
+            /usr/lib/systemd/system-generators/bootc-systemd-generator; \
+        install -d /usr/libexec/libostree/ext; \
+        ln -sf ../../bin/bootc /usr/libexec/libostree/ext/ostree-container; \
+        ln -sf ../../bin/bootc /usr/libexec/libostree/ext/ostree-ima-sign; \
+        ln -sf ../../bin/bootc /usr/libexec/libostree/ext/ostree-provisional-repair; \
+        install -d /usr/lib/bootc/bound-images.d /usr/lib/bootc/kargs.d /usr/lib/bootc/install; \
+        install -Dm0644 systemd/*.service systemd/*.timer systemd/*.path systemd/*.target \
+            -t /usr/lib/systemd/system/; \
+        install -Dm0644 -t /usr/lib/dracut/modules.d/51bootc/ \
+            crates/initramfs/dracut/module-setup.sh 2>/dev/null || true; \
+        install -Dm0644 crates/initramfs/bootc-root-setup.service \
+            /usr/lib/systemd/system/bootc-root-setup.service 2>/dev/null || true; \
+        cd /; \
+        rm -rf /tmp/bootc-1.16.3 /tmp/src.tar.zstd /root/.cargo; \
+        pacman -Rns --noconfirm rust cargo 2>/dev/null || true; \
+    fi; \
+    pacman -Scc --noconfirm
+
+# --- Layer 3: Locale, users, system config ---
+RUN set -eux; \
+    sed -i "s|#en_US.UTF-8 UTF-8|en_US.UTF-8 UTF-8|g" /etc/locale.gen; \
+    locale-gen; \
+    echo "KEYMAP=us" > /etc/vconsole.conf; \
+    echo "nabu" > /etc/hostname; \
+    userdel alarm || true; \
+    useradd -m -G wheel,audio,video,storage,optical -s /bin/bash user; \
+    echo "user:123456" | chpasswd; \
+    pacman -S --noconfirm sudo terminus-font btrfs-progs; \
+    echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel; \
+    systemctl disable sshd || true; \
+    pacman -S --noconfirm vulkan-freedreno || true
+
+# --- Layer 4: ostree/sysroot layout ---
+RUN set -eux; \
+    systemctl enable NetworkManager bluetooth systemd-timesyncd systemd-timedated polkit || true; \
+    systemctl enable ostree-remount.service 2>/dev/null || true; \
+    mkdir -p /etc/ostree /sysroot /sysroot/ostree; \
+    printf '[sysroot]\ncomposefs=false\n' > /etc/ostree/prepare-root.conf; \
+    ln -sfn sysroot/ostree /ostree; \
+    rm -rf /home /root /srv /opt /mnt /usr/local; \
+    ln -sf var/home /home; \
+    ln -sf var/roothome /root; \
+    ln -sf var/srv /srv; \
+    ln -sf var/opt /opt; \
+    ln -sf var/mnt /mnt; \
+    ln -sf ../var/usrlocal /usr/local; \
+    mkdir -p /var/home/user; \
+    chown user:user /var/home/user; \
+    chmod 0755 /var/home/user; \
+    printf 'd /var/home 0755 root root -\nd /var/home/user 0755 user user -\nd /var/roothome 0700 root root -\nd /var/srv 0755 root root -\nd /var/opt 0755 root root -\nd /var/mnt 0755 root root -\n' \
+        > /usr/lib/tmpfiles.d/bootc-base-dirs.conf
+
+# --- Layer 5: bootc update service ---
+RUN set -eux; \
+    systemctl enable bootc-fetch-apply-updates.service || true
+
+# --- Layer 6: Btrfs scrub + snapper + zram ---
+RUN set -eux; \
+    systemctl enable btrfs-scrub@-.timer || true; \
+    pacman-retry -S --noconfirm snapper zram-generator || true; \
+    systemctl enable snapper-timeline.timer snapper-cleanup.timer || true
+
+# --- Layer 7: mkinitcpio ---
+RUN set -eux; \
+    sed -i 's|^MODULES=.*|MODULES=(btrfs vfat ext4 xfs erofs)|g' /etc/mkinitcpio.conf; \
+    sed -i 's|^HOOKS=.*|HOOKS=(systemd autodetect modconf kms keyboard keymap consolefont block filesystems fsck ostree)|g' /etc/mkinitcpio.conf; \
+    mkdir -p /boot/efi
+
+# --- Layer 8: Apply overlay (configs, scripts, services) ---
+ADD overlay/ /
+RUN chmod +x /usr/local/bin/pacman-retry 2>/dev/null || true; \
+    chmod +x /usr/libexec/nabu/bootc-uki-sync 2>/dev/null || true; \
+    chmod +x /usr/libexec/nabu/bootc-boot-setup 2>/dev/null || true; \
+    chmod +x /usr/lib/scripts/nabu-rw 2>/dev/null || true; \
+    chmod +x /usr/libexec/grow-rootfs 2>/dev/null || true; \
+    chmod +x /usr/libexec/nabu/timezone-setup 2>/dev/null || true; \
+    chmod +x /usr/local/bin/nabu-set-timezone 2>/dev/null || true; \
+    chown -R user:user /var/home/user/.mozilla 2>/dev/null || true; \
+    systemctl enable nabu-pmac.service bootc-pin.service grow-rootfs.service nabu-timezone.service || true; \
+    systemctl disable nabu-boot-setup.service 2>/dev/null || true
+
+# --- Layer 9: Clean up ---
+RUN set -eux; \
+    rm -rf /var/log/* /tmp/* /var/tmp/* /root/.cache/* /usr/share/doc/* /usr/share/man/* /usr/share/info/*
+
+# Ensure bootc labels are set
+LABEL containers.bootc="1"
+
+RUN bootc container lint

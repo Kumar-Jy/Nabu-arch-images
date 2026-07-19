@@ -1,0 +1,34 @@
+#!/bin/bash
+set -euo pipefail
+
+TZ_STATE="/var/lib/nabu/timezone"
+LOCALTIME="/etc/localtime"
+ZONEINFO_DIR="/usr/share/zoneinfo"
+
+mkdir -p /var/lib/nabu
+
+if [ ! -f "$TZ_STATE" ]; then
+    echo "nabu-timezone: no persistent timezone set, using image default"
+    exit 0
+fi
+
+TARGET_TZ=$(cat "$TZ_STATE")
+if [ -z "$TARGET_TZ" ]; then
+    echo "nabu-timezone: timezone file is empty, using image default"
+    exit 0
+fi
+
+if [ ! -f "$ZONEINFO_DIR/$TARGET_TZ" ]; then
+    echo "nabu-timezone: invalid timezone '$TARGET_TZ', using image default" >&2
+    exit 0
+fi
+
+if mountpoint -q "$LOCALTIME" 2>/dev/null; then
+    umount "$LOCALTIME" 2>/dev/null || true
+fi
+
+if ln -sf "$ZONEINFO_DIR/$TARGET_TZ" "$LOCALTIME" 2>/dev/null; then
+    echo "nabu-timezone: symlinked $LOCALTIME -> $ZONEINFO_DIR/$TARGET_TZ"
+else
+    mount --bind "$ZONEINFO_DIR/$TARGET_TZ" "$LOCALTIME"
+fi

@@ -1,0 +1,12 @@
+[Unit]
+Description=Root filesystem growing
+ConditionPathIsMountPoint=/sysroot
+DefaultDependencies=no
+Requires=sysinit.target
+After=sysinit.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/grow-rootfs
+MountFlags=slave

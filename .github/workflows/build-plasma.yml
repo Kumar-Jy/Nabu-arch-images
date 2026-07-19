@@ -1,0 +1,156 @@
+name: Build Plasma installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_base:
+        description: "Rebuild base image first"
+        type: boolean
+        default: false
+      trigger_release:
+        description: "Create a GitHub Release after build"
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ============================================================
+  # Optional: Rebuild base image
+  # ============================================================
+  build-base:
+    if: ${{ inputs.rebuild_base == true }}
+    uses: ./.github/workflows/build-base.yml
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+
+  # ============================================================
+  # Build Plasma container + installer
+  # ============================================================
+  build-plasma-installer:
+    name: Build Plasma installer
+    runs-on: ubuntu-24.04-arm
+    needs: [build-base]
+    if: ${{ always() && !cancelled() }}
+    permissions:
+      contents: read
+      packages: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman btrfs-progs pigz arch-install-scripts dosfstools ostree
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build plasma container image
+        run: |
+          podman build --squash \
+            -t ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-plasma:latest \
+            --build-arg BASE_IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-base:latest \
+            -f plasma/Containerfile \
+            plasma/
+
+      - name: Push plasma image
+        run: |
+          podman push ${{ env.REGISTRY }}/${{ env.OWNER }}/nabu-plasma:latest
+
+      - name: Export plasma container to Btrfs image
+        env:
+          VARIANT: plasma
+          REGISTRY: ${{ env.REGISTRY }}
+          OWNER: ${{ env.OWNER }}
+        run: bash scripts/build-installer.sh
+      - name: Unmount
+        run: |
+          sudo umount -R ./mountpoint || sudo umount -l ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Export EFI
+        run: |
+          mkdir -p ./mountpoint
+          sudo mount -o loop,subvol=@ ./rootfs.img ./mountpoint/
+          EFI_TGZ=$(find ./mountpoint/ostree -name "efi.tgz" -path "*/opt/nabu/*" 2>/dev/null | head -1)
+          if [ -z "$EFI_TGZ" ]; then
+            echo "Error: efi.tgz not found in rootfs" >&2
+            exit 1
+          fi
+          mkdir -p ./efi-tmp ./efi
+          sudo tar xzf "$EFI_TGZ" -C ./efi-tmp/
+          sudo cp -r ./efi-tmp/EFI/* ./efi/
+          sudo rm -rf ./efi-tmp
+          sudo cp -r ./base/overlay/opt/nabu/efi-template/EFI/* ./efi/
+          sudo chown -R $USER:$USER ./efi/
+          ls -laR ./efi/
+          sudo umount ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Prepare installer artifacts
+        run: |
+          mkdir -p ./images
+          mv ./rootfs.img ./images/
+
+          truncate -s 250M ./images/esp.img
+          mkfs.fat -F 32 ./images/esp.img
+          mkdir -p ./esp-mount
+          sudo mount -o loop ./images/esp.img ./esp-mount/
+          sudo mkdir -p ./esp-mount/EFI
+          sudo cp -r ./efi/* ./esp-mount/EFI/
+          sudo umount ./esp-mount
+          rmdir ./esp-mount
+
+          if wget -q "https://github.com/kdave/btrfs-progs/releases/download/v7.0/btrfs.box.static-arm" -O ./bin/mkfs.btrfs 2>/dev/null; then
+            chmod +x ./bin/mkfs.btrfs
+          fi
+
+      - name: Download WinPE
+        run: |
+          wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
+
+      - name: Copy flash scripts
+        run: |
+          cp base/overlay/opt/nabu/fastboot-script/flash-linux.bat .
+          cp base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
+          chmod +x flash-linux.sh
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nabu-alarm-atomic-plasma-installer
+          path: |
+            bin
+            DBKP
+            efi
+            flash-linux.bat
+            flash-linux.sh
+            images
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
+      - name: Trigger release workflow
+        if: ${{ inputs.trigger_release == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run "Create Installer Release" \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref_name }} \
+            -f plasma_run_id=${{ github.run_id }}
+

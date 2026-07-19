@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <timezone>"
+    echo "Example: $0 Asia/Kolkata"
+    echo ""
+    echo "Available timezones:"
+    timedatectl list-timezones 2>/dev/null || ls /usr/share/zoneinfo/ | head -30
+    exit 1
+fi
+
+TZ="$1"
+ZONEINFO_DIR="/usr/share/zoneinfo"
+
+if [ ! -f "$ZONEINFO_DIR/$TZ" ]; then
+    echo "Error: '$TZ' is not a valid timezone." >&2
+    echo "Run 'timedatectl list-timezones' for available options." >&2
+    exit 1
+fi
+
+mkdir -p /var/lib/nabu
+echo "$TZ" > /var/lib/nabu/timezone
+chmod 0644 /var/lib/nabu/timezone
+
+LOCALTIME="/etc/localtime"
+if mountpoint -q "$LOCALTIME" 2>/dev/null; then
+    umount "$LOCALTIME" 2>/dev/null || true
+fi
+
+if ln -sf "$ZONEINFO_DIR/$TZ" "$LOCALTIME" 2>/dev/null; then
+    echo "Timezone set to $TZ (symlinked)"
+else
+    mount --bind "$ZONEINFO_DIR/$TZ" "$LOCALTIME"
+    echo "Timezone set to $TZ (bind-mounted)"
+fi
+
+nabu-rw on 2>/dev/null || true
+timedatectl set-timezone "$TZ" 2>/dev/null || true
+nabu-rw off 2>/dev/null || true
+
+echo "Timezone '$TZ' saved persistently. Will survive reboots and bootc updates."
