@@ -41,7 +41,7 @@ jobs:
 
       - name: Download generic rootfs tarball
         run: |
-          wget "https://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+          wget "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
 
       - name: Build rootfs-extractor image
         run: |
