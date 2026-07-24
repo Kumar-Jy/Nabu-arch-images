@@ -23,7 +23,7 @@ conflicts=("$_pkgname")
 
 prepare() {
   cd $pkgname
-  git am ../no-negative-current-check.patch
+  git apply ../no-negative-current-check.patch
 }
 
 pkgver() {
