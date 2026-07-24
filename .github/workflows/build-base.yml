@@ -2,6 +2,11 @@ name: Build base image
 
 on:
   workflow_dispatch:
+    inputs:
+      trigger_builds:
+        description: "Also trigger GNOME and Plasma builds after base"
+        type: boolean
+        default: false
   workflow_call:
 
 jobs:
@@ -279,3 +284,25 @@ jobs:
           path: ./rootfs.img.gz
           retention-days: 90
           compression-level: 0
+
+  trigger-downstream:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.trigger_builds == true }}
+    needs: [build-base-image]
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Trigger GNOME build
+        run: |
+          gh workflow run "Build GNOME installer" \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref_name }} \
+            -f rebuild_base=false
+      - name: Trigger Plasma build
+        run: |
+          gh workflow run "Build Plasma installer" \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref_name }} \
+            -f rebuild_base=false
