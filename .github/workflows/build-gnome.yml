@@ -49,10 +49,13 @@ jobs:
 
       - name: Download base image
         id: download-base
-        uses: actions/download-artifact@v8
-        with:
-          name: alarm-nabu-rootfs-base
-          run-id: ${{ steps.resolve-base.outputs.run_id }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ steps.resolve-base.outputs.run_id }}" \
+            --repo ${{ github.repository }} \
+            --name alarm-nabu-rootfs-base \
+            --dir .
 
       - name: Unpack and mount base image
         run: |
