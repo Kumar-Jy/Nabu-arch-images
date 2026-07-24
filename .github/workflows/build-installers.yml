@@ -354,8 +354,8 @@ jobs:
         run: |
           e2fsck -f rootfs.img -y
           resize2fs rootfs.img -M
-          mkdir -p ./image
-          mv ./rootfs.img ./image/
+          mkdir -p ./images
+          mv ./rootfs.img ./images/
           mv ./repo/bin ./bin
           mv ./repo/DBKP ./DBKP
           mv ./repo/META-INF ./META-INF
@@ -367,10 +367,10 @@ jobs:
 
       - name: Create ESP image
         run: |
-          truncate -s 250M ./esp.img
-          mkfs.fat -F 32 ./esp.img
+          truncate -s 250M ./images/esp.img
+          mkfs.fat -F 32 ./images/esp.img
           mkdir -p ./esp-mount
-          sudo mount -o loop ./esp.img ./esp-mount/
+          sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI
           sudo cp -r ./efi/* ./esp-mount/EFI/
           sudo umount ./esp-mount
@@ -390,10 +390,9 @@ jobs:
             bin
             DBKP
             efi
-            esp.img
             flash-linux.bat
             flash-linux.sh
-            image
+            images
             installer
             META-INF
           retention-days: 90
@@ -498,8 +497,8 @@ jobs:
         run: |
           e2fsck -f rootfs.img -y
           resize2fs rootfs.img -M
-          mkdir -p ./image
-          mv ./rootfs.img ./image/
+          mkdir -p ./images
+          mv ./rootfs.img ./images/
           mv ./repo/bin ./bin
           mv ./repo/DBKP ./DBKP
           mv ./repo/META-INF ./META-INF
@@ -511,10 +510,10 @@ jobs:
 
       - name: Create ESP image
         run: |
-          truncate -s 250M ./esp.img
-          mkfs.fat -F 32 ./esp.img
+          truncate -s 250M ./images/esp.img
+          mkfs.fat -F 32 ./images/esp.img
           mkdir -p ./esp-mount
-          sudo mount -o loop ./esp.img ./esp-mount/
+          sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI
           sudo cp -r ./efi/* ./esp-mount/EFI/
           sudo umount ./esp-mount
@@ -534,10 +533,9 @@ jobs:
             bin
             DBKP
             efi
-            esp.img
             flash-linux.bat
             flash-linux.sh
-            image
+            images
             installer
             META-INF
           retention-days: 90

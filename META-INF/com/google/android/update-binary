@@ -55,7 +55,7 @@ ui_print "Formatting and flashing Linux image";
 
 $mke2fs -t ext4 -F "$linux_part" || abort "Failed to format linux partition";
 
-$zext e -so "$ZIPFILE" "image/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || abort "Failed to dump rootfs image";
+$zext e -so "$ZIPFILE" "images/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || abort "Failed to dump rootfs image";
 
 ui_print " ";
 ui_print "Done flashing rootfs!";
@@ -94,7 +94,7 @@ else
 fi;
 
 # If there is separate boot.img need to be flashed
-unzip -o "$ZIPFILE" "image/boot.img" -d "$tmp" 2>/dev/null;
+unzip -o "$ZIPFILE" "images/boot.img" -d "$tmp" 2>/dev/null;
 if [ ! -f "$tmp/image/boot.img" ]; then
   ui_print "No separate boot.img found, skipping...";
 else
