@@ -13,16 +13,11 @@ on:
         default: false
 
 jobs:
-  build-base:
-    if: ${{ inputs.rebuild_base == true }}
-    uses: ./.github/workflows/build-base.yml
-    permissions:
-      contents: read
-
   build-plasma-image:
     name: Build Plasma image
     runs-on: ubuntu-24.04-arm
-    needs: [build-base]
+    permissions:
+      actions: read
     if: ${{ always() && !cancelled() }}
     steps:
       - name: Update apt cache
@@ -42,18 +37,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ inputs.rebuild_base }}" == "true" ]; then
-            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-          else
-            LATEST=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/build-base.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
-              | jq -r '.workflow_runs[0].id // ""')
-            if [ -z "$LATEST" ]; then
-              echo "No successful base build found. Run build-base.yml first or set rebuild_base=true." >&2
-              exit 1
-            fi
-            echo "run_id=$LATEST" >> $GITHUB_OUTPUT
+          LATEST=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build-base.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id // ""')
+          if [ -z "$LATEST" ]; then
+            echo "No successful base build found. Run build-base.yml first." >&2
+            exit 1
           fi
+          echo "run_id=$LATEST" >> $GITHUB_OUTPUT
 
       - name: Download base image
         id: download-base
