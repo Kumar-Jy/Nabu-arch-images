@@ -76,13 +76,17 @@ jobs:
                 pacman-key --init
                 pacman-key --populate archlinuxarm
                 pacman -Syu --noconfirm
+                pacman -S --noconfirm base-devel
                 useradd -m builder
-                chown -R builder:builder /work /output
+                chown -R builder:builder /work
                 su builder -c 'cd /work && makepkg -s --noconfirm --skipchecksums'
                 cp /work/*.pkg.tar.* /output/ 2>/dev/null || true
               "
             echo "::endgroup::"
           done
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER:$USER" repo/aarch64/
 
       - name: Re-sign packages
         run: |
@@ -115,6 +119,9 @@ jobs:
           if [ ! -f repo/aarch64/nabu.db.tar.gz ]; then
             touch repo/aarch64/nabu.db.tar.gz
           fi
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER:$USER" repo/aarch64/
 
       - name: Sign database files
         run: |
