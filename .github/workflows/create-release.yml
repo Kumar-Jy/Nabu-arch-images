@@ -119,6 +119,8 @@ jobs:
     needs: [upload-non-atomic, upload-atomic]
     runs-on: ubuntu-24.04-arm
     steps:
+      - uses: actions/checkout@v7
+
       - name: Build release notes
         env:
           GH_TOKEN: ${{ github.token }}
