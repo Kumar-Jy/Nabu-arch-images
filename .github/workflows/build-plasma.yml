@@ -16,8 +16,10 @@ jobs:
   build-plasma-image:
     name: Build Plasma image
     runs-on: ubuntu-24.04-arm
+    permissions:
+      actions: read
+      contents: read
 
-    if: ${{ always() && !cancelled() }}
     steps:
       - name: Update apt cache
         run: |
