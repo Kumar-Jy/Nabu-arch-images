@@ -1,0 +1,357 @@
+name: Create Installer Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_normal:
+        description: "Include normal branch builds"
+        type: boolean
+        default: false
+      include_atomic:
+        description: "Include atomic branch builds"
+        type: boolean
+        default: false
+      normal_plasma_run_id:
+        description: "Normal Plasma build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+      normal_gnome_run_id:
+        description: "Normal GNOME build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+      atomic_plasma_run_id:
+        description: "Atomic Plasma build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+      atomic_gnome_run_id:
+        description: "Atomic GNOME build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  create-release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Auto-detect normal branch runs
+        if: ${{ inputs.include_normal == true }}
+        env:
+          GH_API: https://api.github.com/repos/${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NORMAL_PLASMA_ID="${{ inputs.normal_plasma_run_id }}"
+          NORMAL_GNOME_ID="${{ inputs.normal_gnome_run_id }}"
+
+          if [ -z "$NORMAL_PLASMA_ID" ]; then
+            NORMAL_PLASMA_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-plasma.yml/runs?branch=main&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+          if [ -z "$NORMAL_GNOME_ID" ]; then
+            NORMAL_GNOME_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-gnome.yml/runs?branch=main&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+
+          echo "NORMAL_PLASMA_RUN_ID=$NORMAL_PLASMA_ID" >> $GITHUB_ENV
+          echo "NORMAL_GNOME_RUN_ID=$NORMAL_GNOME_ID" >> $GITHUB_ENV
+
+      - name: Auto-detect atomic branch runs
+        if: ${{ inputs.include_atomic == true }}
+        env:
+          GH_API: https://api.github.com/repos/${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ATOMIC_PLASMA_ID="${{ inputs.atomic_plasma_run_id }}"
+          ATOMIC_GNOME_ID="${{ inputs.atomic_gnome_run_id }}"
+
+          if [ -z "$ATOMIC_PLASMA_ID" ]; then
+            ATOMIC_PLASMA_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-plasma.yml/runs?branch=atomic&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+          if [ -z "$ATOMIC_GNOME_ID" ]; then
+            ATOMIC_GNOME_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-gnome.yml/runs?branch=atomic&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+
+          echo "ATOMIC_PLASMA_RUN_ID=$ATOMIC_PLASMA_ID" >> $GITHUB_ENV
+          echo "ATOMIC_GNOME_RUN_ID=$ATOMIC_GNOME_ID" >> $GITHUB_ENV
+
+      - name: Generate download scripts
+        run: |
+          mkdir -p scripts-tmp
+
+          if [ "${{ inputs.include_normal }}" == "true" ] && [ -n "$NORMAL_PLASMA_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-normal-plasma.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-normal-plasma.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-normal-plasma.sh
+            echo "RUN_ID=\"$NORMAL_PLASMA_RUN_ID\"" >> scripts-tmp/get-normal-plasma.sh
+            echo 'ARTIFACT="alarm-nabu-installer-plasma"' >> scripts-tmp/get-normal-plasma.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-normal-plasma.sh
+            echo 'echo "Downloading Normal Plasma installer from:"' >> scripts-tmp/get-normal-plasma.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-normal-plasma.sh
+            echo 'curl -fL "$URL" -o nabu-normal-plasma-installer.zip' >> scripts-tmp/get-normal-plasma.sh
+            echo 'echo "Saved: nabu-normal-plasma-installer.zip"' >> scripts-tmp/get-normal-plasma.sh
+            chmod +x scripts-tmp/get-normal-plasma.sh
+          fi
+
+          if [ "${{ inputs.include_normal }}" == "true" ] && [ -n "$NORMAL_GNOME_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-normal-gnome.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-normal-gnome.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-normal-gnome.sh
+            echo "RUN_ID=\"$NORMAL_GNOME_RUN_ID\"" >> scripts-tmp/get-normal-gnome.sh
+            echo 'ARTIFACT="alarm-nabu-installer-gnome"' >> scripts-tmp/get-normal-gnome.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-normal-gnome.sh
+            echo 'echo "Downloading Normal GNOME installer from:"' >> scripts-tmp/get-normal-gnome.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-normal-gnome.sh
+            echo 'curl -fL "$URL" -o nabu-normal-gnome-installer.zip' >> scripts-tmp/get-normal-gnome.sh
+            echo 'echo "Saved: nabu-normal-gnome-installer.zip"' >> scripts-tmp/get-normal-gnome.sh
+            chmod +x scripts-tmp/get-normal-gnome.sh
+          fi
+
+          if [ "${{ inputs.include_atomic }}" == "true" ] && [ -n "$ATOMIC_PLASMA_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-atomic-plasma.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-atomic-plasma.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-atomic-plasma.sh
+            echo "RUN_ID=\"$ATOMIC_PLASMA_RUN_ID\"" >> scripts-tmp/get-atomic-plasma.sh
+            echo 'ARTIFACT="Nabu-alarm-atomic-plasma-installer"' >> scripts-tmp/get-atomic-plasma.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-atomic-plasma.sh
+            echo 'echo "Downloading Atomic Plasma installer from:"' >> scripts-tmp/get-atomic-plasma.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-atomic-plasma.sh
+            echo 'curl -fL "$URL" -o nabu-atomic-plasma-installer.zip' >> scripts-tmp/get-atomic-plasma.sh
+            echo 'echo "Saved: nabu-atomic-plasma-installer.zip"' >> scripts-tmp/get-atomic-plasma.sh
+            chmod +x scripts-tmp/get-atomic-plasma.sh
+          fi
+
+          if [ "${{ inputs.include_atomic }}" == "true" ] && [ -n "$ATOMIC_GNOME_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-atomic-gnome.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-atomic-gnome.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-atomic-gnome.sh
+            echo "RUN_ID=\"$ATOMIC_GNOME_RUN_ID\"" >> scripts-tmp/get-atomic-gnome.sh
+            echo 'ARTIFACT="Nabu-alarm-atomic-gnome-installer"' >> scripts-tmp/get-atomic-gnome.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-atomic-gnome.sh
+            echo 'echo "Downloading Atomic GNOME installer from:"' >> scripts-tmp/get-atomic-gnome.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-atomic-gnome.sh
+            echo 'curl -fL "$URL" -o nabu-atomic-gnome-installer.zip' >> scripts-tmp/get-atomic-gnome.sh
+            echo 'echo "Saved: nabu-atomic-gnome-installer.zip"' >> scripts-tmp/get-atomic-gnome.sh
+            chmod +x scripts-tmp/get-atomic-gnome.sh
+          fi
+
+          ls -la scripts-tmp/
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zip jq
+
+      - name: Download and zip normal Plasma artifact
+        if: ${{ inputs.include_normal == true && env.NORMAL_PLASMA_RUN_ID != '' }}
+        run: |
+          mkdir -p normal-plasma
+          curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$NORMAL_PLASMA_RUN_ID/alarm-nabu-installer-plasma.zip"
+          unzip -q alarm-nabu-installer-plasma.zip -d normal-plasma/
+          cd normal-plasma && zip -r ../nabu-normal-plasma-installer.zip . && cd ..
+          rm -f alarm-nabu-installer-plasma.zip
+
+      - name: Download and zip normal GNOME artifact
+        if: ${{ inputs.include_normal == true && env.NORMAL_GNOME_RUN_ID != '' }}
+        run: |
+          mkdir -p normal-gnome
+          curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$NORMAL_GNOME_RUN_ID/alarm-nabu-installer-gnome.zip"
+          unzip -q alarm-nabu-installer-gnome.zip -d normal-gnome/
+          cd normal-gnome && zip -r ../nabu-normal-gnome-installer.zip . && cd ..
+          rm -f alarm-nabu-installer-gnome.zip
+
+      - name: Download and zip atomic Plasma artifact
+        if: ${{ inputs.include_atomic == true && env.ATOMIC_PLASMA_RUN_ID != '' }}
+        run: |
+          mkdir -p atomic-plasma
+          curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$ATOMIC_PLASMA_RUN_ID/Nabu-alarm-atomic-plasma-installer.zip"
+          unzip -q Nabu-alarm-atomic-plasma-installer.zip -d atomic-plasma/
+          cd atomic-plasma && zip -r ../nabu-atomic-plasma-installer.zip . && cd ..
+          rm -f Nabu-alarm-atomic-plasma-installer.zip
+
+      - name: Download and zip atomic GNOME artifact
+        if: ${{ inputs.include_atomic == true && env.ATOMIC_GNOME_RUN_ID != '' }}
+        run: |
+          mkdir -p atomic-gnome
+          curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$ATOMIC_GNOME_RUN_ID/Nabu-alarm-atomic-gnome-installer.zip"
+          unzip -q Nabu-alarm-atomic-gnome-installer.zip -d atomic-gnome/
+          cd atomic-gnome && zip -r ../nabu-atomic-gnome-installer.zip . && cd ..
+          rm -f Nabu-alarm-atomic-gnome-installer.zip
+
+      - name: Upload to Pixeldrain
+        id: upload
+        run: |
+          if [ -f nabu-normal-plasma-installer.zip ]; then
+            echo "Uploading Normal Plasma artifact..."
+            PLASMA_RES=$(curl -s -T nabu-normal-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            NORMAL_PLASMA_PD_ID=$(echo "$PLASMA_RES" | jq -r '.id')
+            echo "normal_plasma_url=https://pixeldrain.com/u/$NORMAL_PLASMA_PD_ID" >> $GITHUB_OUTPUT
+          fi
+          if [ -f nabu-normal-gnome-installer.zip ]; then
+            echo "Uploading Normal GNOME artifact..."
+            GNOME_RES=$(curl -s -T nabu-normal-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            NORMAL_GNOME_PD_ID=$(echo "$GNOME_RES" | jq -r '.id')
+            echo "normal_gnome_url=https://pixeldrain.com/u/$NORMAL_GNOME_PD_ID" >> $GITHUB_OUTPUT
+          fi
+          if [ -f nabu-atomic-plasma-installer.zip ]; then
+            echo "Uploading Atomic Plasma artifact..."
+            ATOMIC_PLASMA_RES=$(curl -s -T nabu-atomic-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            ATOMIC_PLASMA_PD_ID=$(echo "$ATOMIC_PLASMA_RES" | jq -r '.id')
+            echo "atomic_plasma_url=https://pixeldrain.com/u/$ATOMIC_PLASMA_PD_ID" >> $GITHUB_OUTPUT
+          fi
+          if [ -f nabu-atomic-gnome-installer.zip ]; then
+            echo "Uploading Atomic GNOME artifact..."
+            ATOMIC_GNOME_RES=$(curl -s -T nabu-atomic-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            ATOMIC_GNOME_PD_ID=$(echo "$ATOMIC_GNOME_RES" | jq -r '.id')
+            echo "atomic_gnome_url=https://pixeldrain.com/u/$ATOMIC_GNOME_PD_ID" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_API: https://api.github.com/repos/${{ github.repository }}
+        run: |
+          NORMAL_PLASMA_DATE=""
+          NORMAL_GNOME_DATE=""
+          ATOMIC_PLASMA_DATE=""
+          ATOMIC_GNOME_DATE=""
+
+          if [ -n "$NORMAL_PLASMA_RUN_ID" ]; then
+            NORMAL_PLASMA_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$NORMAL_PLASMA_RUN_ID" | jq -r '.created_at // ""')
+          fi
+          if [ -n "$NORMAL_GNOME_RUN_ID" ]; then
+            NORMAL_GNOME_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$NORMAL_GNOME_RUN_ID" | jq -r '.created_at // ""')
+          fi
+          if [ -n "$ATOMIC_PLASMA_RUN_ID" ]; then
+            ATOMIC_PLASMA_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$ATOMIC_PLASMA_RUN_ID" | jq -r '.created_at // ""')
+          fi
+          if [ -n "$ATOMIC_GNOME_RUN_ID" ]; then
+            ATOMIC_GNOME_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$ATOMIC_GNOME_RUN_ID" | jq -r '.created_at // ""')
+          fi
+
+          LATEST_DATE=$(echo -e "$NORMAL_PLASMA_DATE\n$NORMAL_GNOME_DATE\n$ATOMIC_PLASMA_DATE\n$ATOMIC_GNOME_DATE" | grep -v '^$' | sort -r | head -1)
+          if [ -n "$LATEST_DATE" ]; then
+            BUILD_DATE=$(date -d "$LATEST_DATE" +%d.%m.%Y 2>/dev/null || echo "latest")
+          else
+            BUILD_DATE="latest"
+          fi
+
+          cat > release-notes.md << BODY
+          Built images
+
+          **Build type:** arch-normal (traditional/ext4) + arch-atomic (bootc/ostree)
+
+          BODY
+          echo "Build date: $BUILD_DATE" >> release-notes.md
+          echo "" >> release-notes.md
+
+          if [ "${{ inputs.include_normal }}" == "true" ]; then
+            echo "### arch-normal (traditional)" >> release-notes.md
+            echo "" >> release-notes.md
+            if [ -n "$NORMAL_PLASMA_RUN_ID" ]; then
+              echo "- KDE Plasma" >> release-notes.md
+            fi
+            if [ -n "$NORMAL_GNOME_RUN_ID" ]; then
+              echo "- GNOME" >> release-notes.md
+            fi
+            echo "" >> release-notes.md
+          fi
+
+          if [ "${{ inputs.include_atomic }}" == "true" ]; then
+            echo "### arch-atomic (bootc/ostree)" >> release-notes.md
+            echo "" >> release-notes.md
+            if [ -n "$ATOMIC_PLASMA_RUN_ID" ]; then
+              echo "- KDE Plasma" >> release-notes.md
+            fi
+            if [ -n "$ATOMIC_GNOME_RUN_ID" ]; then
+              echo "- GNOME" >> release-notes.md
+            fi
+            echo "" >> release-notes.md
+          fi
+
+          cat >> release-notes.md << BODY
+
+          **Login Credentials:**
+          - Username: \`user\`
+          - Password: \`123456\`
+
+          **First Boot:**
+          1. The system will auto-login to the desktop
+          2. Use password \`123456\` for sudo operations
+          3. Connect to Wi-Fi using NetworkManager (click network icon in system tray)
+
+          BODY
+
+          echo "" >> release-notes.md
+          echo "## Downloads" >> release-notes.md
+          echo "" >> release-notes.md
+
+          if [ -n "$NORMAL_PLASMA_RUN_ID" ]; then
+            echo "- [Normal Plasma (nightly.link)](https://nightly.link/${{ github.repository }}/actions/runs/$NORMAL_PLASMA_RUN_ID)" >> release-notes.md
+          fi
+          if [ -n "$NORMAL_GNOME_RUN_ID" ]; then
+            echo "- [Normal GNOME (nightly.link)](https://nightly.link/${{ github.repository }}/actions/runs/$NORMAL_GNOME_RUN_ID)" >> release-notes.md
+          fi
+          if [ -n "$ATOMIC_PLASMA_RUN_ID" ]; then
+            echo "- [Atomic Plasma (nightly.link)](https://nightly.link/${{ github.repository }}/actions/runs/$ATOMIC_PLASMA_RUN_ID)" >> release-notes.md
+          fi
+          if [ -n "$ATOMIC_GNOME_RUN_ID" ]; then
+            echo "- [Atomic GNOME (nightly.link)](https://nightly.link/${{ github.repository }}/actions/runs/$ATOMIC_GNOME_RUN_ID)" >> release-notes.md
+          fi
+
+          echo "" >> release-notes.md
+          echo "## Pixeldrain Downloads" >> release-notes.md
+          echo "" >> release-notes.md
+
+          NORMAL_PLASMA_PD_URL="${{ steps.upload.outputs.normal_plasma_url }}"
+          NORMAL_GNOME_PD_URL="${{ steps.upload.outputs.normal_gnome_url }}"
+          ATOMIC_PLASMA_PD_URL="${{ steps.upload.outputs.atomic_plasma_url }}"
+          ATOMIC_GNOME_PD_URL="${{ steps.upload.outputs.atomic_gnome_url }}"
+
+          if [ -n "$NORMAL_PLASMA_PD_URL" ]; then
+            echo "- [Normal Plasma (Pixeldrain)]($NORMAL_PLASMA_PD_URL)" >> release-notes.md
+          fi
+          if [ -n "$NORMAL_GNOME_PD_URL" ]; then
+            echo "- [Normal GNOME (Pixeldrain)]($NORMAL_GNOME_PD_URL)" >> release-notes.md
+          fi
+          if [ -n "$ATOMIC_PLASMA_PD_URL" ]; then
+            echo "- [Atomic Plasma (Pixeldrain)]($ATOMIC_PLASMA_PD_URL)" >> release-notes.md
+          fi
+          if [ -n "$ATOMIC_GNOME_PD_URL" ]; then
+            echo "- [Atomic GNOME (Pixeldrain)]($ATOMIC_GNOME_PD_URL)" >> release-notes.md
+          fi
+
+      - name: Update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete arch-normal --yes 2>/dev/null || true
+          sleep 2
+
+          files=""
+          for f in scripts-tmp/get-*.sh; do
+            [ -f "$f" ] && files="$files $f"
+          done
+
+          if [ -n "$files" ]; then
+            gh release create arch-normal \
+              --title "arch-normal" \
+              --notes-file release-notes.md \
+              $files
+          else
+            echo "No scripts generated, nothing to release."
+          fi

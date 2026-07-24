@@ -1,0 +1,281 @@
+name: Build base image
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build-base-image:
+    name: Build base image
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Update apt cache
+        run: |
+          sudo apt-get update
+
+      - name: Install tools
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          path: repo
+
+      - name: Create and mount image
+        run: |
+          echo "::group::Create image"
+          truncate -s 20G ./rootfs.img
+          mkfs.ext4 ./rootfs.img
+          echo "::endgroup::"
+          echo "::group::Mount image"
+          mkdir mountpoint
+          sudo mount -o loop ./rootfs.img ./mountpoint/
+          sudo mkdir ./mountpoint/boot/efi/ -p
+          sudo mount -o size=512M,mode=0755 -t tmpfs none ./mountpoint/boot/efi/
+          echo "::endgroup::"
+
+      - name: Download generic rootfs tarball
+        run: |
+          wget "https://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+
+      - name: Build rootfs-extractor image
+        run: |
+          echo '
+          FROM alpine:latest
+          RUN apk add --no-cache libarchive-tools
+          ENTRYPOINT ["/bin/sh"]
+          ' > Dockerfile
+          docker build -t rootfs-extractor .
+
+      - name: Extract rootfs
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}/ArchLinuxARM-aarch64-latest.tar.gz:/rootfs.tar \
+            -v ${{ github.workspace }}/mountpoint:/mountpoint \
+            rootfs-extractor -c "
+              cd /mountpoint && bsdtar -xpf /rootfs.tar
+            "
+
+      - name: Init pacman key store
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman-key --init
+          pacman-key --populate archlinuxarm
+          EOF
+
+      - name: Configure pacman mirrorlist
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /etc/pacman.d/mirrorlist
+          EOF
+
+      - name: Delete default user
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          userdel alarm
+          EOF
+
+      - name: Set locale
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          sed -i "s|#en_US.UTF-8 UTF-8|en_US.UTF-8 UTF-8|g" "/etc/locale.gen"
+          locale-gen
+          echo "LANG=en_US.UTF-8" > "/etc/locale.conf"
+          EOF
+
+      - name: Configure pacman options
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          sed -i "s/#ParallelDownloads/ParallelDownloads/g" /etc/pacman.conf
+          sed -i "s/#DisableSandboxFilesystem/DisableSandboxFilesystem/g" /etc/pacman.conf
+          sed -i "s/#DisableSandboxSyscalls/DisableSandboxSyscalls/g" /etc/pacman.conf
+          EOF
+
+      - name: Add nabu repo
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          # Add nabu repo (provides kernel, firmware, nabu-pmac, etc.)
+          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf
+          pacman -Sy --noconfirm
+          EOF
+
+      - name: Remove generic kernel
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -R --noconfirm linux-aarch64
+          EOF
+
+      - name: Update system
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -Syu --noconfirm
+          EOF
+
+      - name: Install firmwares
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm linux-firmware-xiaomi-nabu
+          EOF
+
+      - name: Install ukify
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm ukify
+          EOF
+
+      - name: Install kernel and headers
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm linux-nabu linux-nabu-headers
+          EOF
+
+      - name: Install alsa ucm config
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm alsa-ucm-conf-xiaomi-nabu
+          EOF
+
+      - name: Install qualcomm wlan services
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm tqftpserv rmtfs
+          systemctl enable tqftpserv rmtfs
+          EOF
+
+      - name: Enable nabu wlan service
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl enable nabu-pmac
+          EOF
+
+      - name: Disable sshd
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl disable sshd
+          EOF
+
+      - name: Install and configure sudo
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm sudo
+          echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel
+          EOF
+
+      - name: Install console font
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm terminus-font
+          EOF
+
+      - name: Apply base overlay
+        run: |
+          sudo cp ./repo/base/overlay/* -r ./mountpoint/
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          /overlay-post-apply
+          rm /overlay-post-apply
+          EOF
+
+      - name: Enable zram-generator
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm zram-generator
+          systemctl enable systemd-zram-setup@zram0.service
+          EOF
+
+      - name: Create efi
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          cp /opt/nabu/efi-template/* -rv /boot/efi/
+          mkdir /boot/efi/EFI/arch/
+          rm /opt/nabu/efi-template -r
+          EOF
+
+      - name: Configure mkinitcpio
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          sed -i "s|HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)|HOOKS=(base udev autodetect modconf kms keyboard keymap consolefont block filesystems fsck)|g" /etc/mkinitcpio.conf
+          EOF
+
+      - name: Generate UKI
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          mkinitcpio -P
+          EOF
+
+      - name: Pack efi
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          tar cvzf "/opt/nabu/efi.tgz" -C "/boot/efi/" .
+          EOF
+
+      - name: Install base packages
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm networkmanager bluez bluez-utils vulkan-freedreno
+          EOF
+
+      - name: Enable bluetooth and network manager
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl enable bluetooth NetworkManager
+          EOF
+
+      - name: Create user with password
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          # Create user 'user' with home directory
+          useradd -m -G wheel,audio,video,storage,optical -s /bin/bash user
+          # Set password to '123456'
+          echo "user:123456" | chpasswd
+          EOF
+
+      - name: Clear pacman cache
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          yes | pacman -Scc
+          EOF
+
+      - name: Unmount rootfs image
+        run: |
+          sudo umount -R ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Compress rootfs image
+        run: |
+          e2fsck -f rootfs.img -y
+          resize2fs rootfs.img -M
+          pigz -9 rootfs.img
+
+      - name: Upload rootfs artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: alarm-nabu-rootfs-base
+          path: ./rootfs.img.gz
+          retention-days: 90
+          compression-level: 0

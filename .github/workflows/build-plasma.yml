@@ -1,0 +1,183 @@
+name: Build Plasma installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_base:
+        description: "Rebuild base image first"
+        type: boolean
+        default: false
+      trigger_release:
+        description: "Create a GitHub Release after build"
+        type: boolean
+        default: false
+
+jobs:
+  build-base:
+    if: ${{ inputs.rebuild_base == true }}
+    uses: ./.github/workflows/build-base.yml
+    permissions:
+      contents: read
+
+  build-plasma-image:
+    name: Build Plasma image
+    runs-on: ubuntu-24.04-arm
+    needs: [build-base]
+    if: ${{ always() && !cancelled() }}
+    steps:
+      - name: Update apt cache
+        run: |
+          sudo apt-get update
+
+      - name: Install tools
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          path: repo
+
+      - name: Resolve base image run
+        id: resolve-base
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ inputs.rebuild_base }}" == "true" ]; then
+            echo "run_id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+          else
+            LATEST=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/build-base.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+            if [ -z "$LATEST" ]; then
+              echo "No successful base build found. Run build-base.yml first or set rebuild_base=true." >&2
+              exit 1
+            fi
+            echo "run_id=$LATEST" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download base image
+        id: download-base
+        uses: actions/download-artifact@v8
+        with:
+          name: alarm-nabu-rootfs-base
+          run-id: ${{ steps.resolve-base.outputs.run_id }}
+
+      - name: Unpack and mount base image
+        run: |
+          echo "::group::Unpack image"
+          pigz -d rootfs.img.gz
+          echo "::endgroup::"          
+          echo "::group::Expand image"
+          e2fsck -f rootfs.img -y
+          resize2fs rootfs.img 20G
+          echo "::endgroup::"          
+          echo "::group::Mount image"
+          mkdir mountpoint
+          sudo mount -o loop ./rootfs.img ./mountpoint/
+          sudo mkdir ./mountpoint/boot/efi/ -p
+          sudo mount -o size=512M,mode=0755 -t tmpfs none ./mountpoint/boot/efi/
+          echo "::endgroup::"
+
+      - name: Unpack efi
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          /opt/nabu/postinstall extract-efi
+          EOF
+
+      - name: Install Plasma Desktop
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          # Sync mirrors first to prevent rolling release package 404s
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak
+          EOF
+
+      - name: Apply DE overlay
+        run: |
+          sudo cp ./repo/plasma/overlay/* -r ./mountpoint/
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          /overlay-post-apply
+          rm /overlay-post-apply
+          EOF
+
+      - name: Enable sddm and configure auto-login
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl enable sddm
+          
+          # Configure SDDM auto-login for user 'user'
+          cat > /etc/sddm.conf.d/autologin.conf << 'EOL'
+          [Autologin]
+          User=user
+          Session=plasma
+          EOL
+          EOF
+
+      - name: Pack efi
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          rm -f /opt/nabu/efi.tgz
+          tar cvzf "/opt/nabu/efi.tgz" -C "/boot/efi/" .
+          EOF
+
+      - name: Clear pacman cache
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          yes | pacman -Scc
+          EOF
+
+      - name: Export efi directory for artifact
+        run: |
+          mkdir -p ./efi
+          sudo cp -a ./mountpoint/boot/efi/EFI/. ./efi/
+          sudo chown -R $USER:$USER ./efi/
+
+      - name: Unmount rootfs image
+        run: |
+          sudo umount -R ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Prepare artifact directories
+        run: |
+          e2fsck -f rootfs.img -y
+          resize2fs rootfs.img -M
+          mkdir -p ./image
+          mv ./rootfs.img ./image/
+          mv ./repo/bin ./bin
+          mv ./repo/DBKP ./DBKP
+          mv ./repo/META-INF ./META-INF
+          mv ./repo/installer ./installer
+
+      - name: Download WinPE image
+        run: |
+          wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: alarm-nabu-installer-plasma
+          path: |
+            bin
+            DBKP
+            efi
+            image
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
+      - name: Trigger release workflow
+        if: ${{ inputs.trigger_release == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run "Create Installer Release" \
+            --repo ${{ github.repository }} \
+            --ref ${{ github.ref_name }} \
+            -f include_normal=true \
+            -f normal_plasma_run_id=${{ github.run_id }}
