@@ -1,0 +1,10 @@
+name: Test minimal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - run: echo "hello"
