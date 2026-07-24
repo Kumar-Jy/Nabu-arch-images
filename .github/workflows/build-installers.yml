@@ -265,7 +265,7 @@ jobs:
         run: sudo apt-get update
 
       - name: Install tools
-        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -365,6 +365,23 @@ jobs:
         run: |
           wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
 
+      - name: Create ESP image
+        run: |
+          truncate -s 250M ./esp.img
+          mkfs.fat -F 32 ./esp.img
+          mkdir -p ./esp-mount
+          sudo mount -o loop ./esp.img ./esp-mount/
+          sudo mkdir -p ./esp-mount/EFI
+          sudo cp -r ./efi/* ./esp-mount/EFI/
+          sudo umount ./esp-mount
+          rmdir ./esp-mount
+
+      - name: Copy flash scripts
+        run: |
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.bat .
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
+          chmod +x flash-linux.sh
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
@@ -373,6 +390,9 @@ jobs:
             bin
             DBKP
             efi
+            esp.img
+            flash-linux.bat
+            flash-linux.sh
             image
             installer
             META-INF
@@ -390,7 +410,7 @@ jobs:
         run: sudo apt-get update
 
       - name: Install tools
-        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -489,6 +509,23 @@ jobs:
         run: |
           wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
 
+      - name: Create ESP image
+        run: |
+          truncate -s 250M ./esp.img
+          mkfs.fat -F 32 ./esp.img
+          mkdir -p ./esp-mount
+          sudo mount -o loop ./esp.img ./esp-mount/
+          sudo mkdir -p ./esp-mount/EFI
+          sudo cp -r ./efi/* ./esp-mount/EFI/
+          sudo umount ./esp-mount
+          rmdir ./esp-mount
+
+      - name: Copy flash scripts
+        run: |
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.bat .
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
+          chmod +x flash-linux.sh
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
@@ -497,6 +534,9 @@ jobs:
             bin
             DBKP
             efi
+            esp.img
+            flash-linux.bat
+            flash-linux.sh
             image
             installer
             META-INF
