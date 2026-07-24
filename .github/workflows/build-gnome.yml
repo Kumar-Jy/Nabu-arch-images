@@ -13,15 +13,9 @@ on:
         default: false
 
 jobs:
-  build-base:
-    if: ${{ inputs.rebuild_base == true }}
-    uses: ./.github/workflows/build-base.yml
-
   build-gnome-image:
     name: Build GNOME image
     runs-on: ubuntu-24.04-arm
-    needs: [build-base]
-    if: ${{ always() && !cancelled() }}
     steps:
       - name: Update apt cache
         run: |
