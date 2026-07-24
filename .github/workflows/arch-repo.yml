@@ -62,34 +62,30 @@ jobs:
           echo "Downloaded files:"
           ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
 
-      - name: Fetch packages from nabu-alarm
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build local packages (upower-nncc, bootc)
+        run: |
+          docker pull archlinux:latest
+          docker run --rm -v ${{ github.workspace }}:/workspace archlinux:latest bash -c '
+            set -e
+            pacman -Syu --noconfirm base-devel sudo git rust
+
+            useradd -m builder
+            echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+            for pkgdir in upower-nncc bootc; do
+              echo "::group::Building $pkgdir..."
+              cp -r /workspace/packages/$pkgdir /home/builder/
+              chown -R builder:builder /home/builder/$pkgdir
+              su - builder -c "cd /home/builder/$pkgdir && makepkg --syncdeps --noconfirm"
+              cp /home/builder/$pkgdir/*.pkg.tar.* /workspace/repo/aarch64/ 2>/dev/null || true
+              echo "::endgroup::"
+            done
+          '
+
+      - name: Show downloaded packages
         run: |
           cd repo/aarch64
-          echo "Fetching packages from nabu-alarm/repo..."
-          # This is a GitHub Pages repo, fetch the database
-          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db.tar.gz" -O aarch64-nabu-alarm.db.tar.gz 2>/dev/null || true
-          wget -q "${NABU_ALARM_URL}/aarch64/aarch64.db" -O aarch64-nabu-alarm.db 2>/dev/null || true
-
-          if [ -f aarch64-nabu-alarm.db.tar.gz ]; then
-            # Extract package list from the database
-            mkdir -p /tmp/nabu-alarm-db
-            tar xzf aarch64-nabu-alarm.db.tar.gz -C /tmp/nabu-alarm-db 2>/dev/null || true
-            # Get all package filenames
-            find /tmp/nabu-alarm-db -name "desc" -exec grep -A1 '%FILENAME%' {} \; | \
-              grep -v '%FILENAME%' | grep -v '^--$' | sort -u > /tmp/pkg-list.txt
-            rm -rf /tmp/nabu-alarm-db aarch64-nabu-alarm.db*
-
-            # Download each package
-            while read -r filename; do
-              [ -z "$filename" ] && continue
-              echo "  Fetching $filename..."
-              wget -q "${NABU_ALARM_URL}/aarch64/${filename}" 2>/dev/null || \
-                echo "  Warning: Could not fetch $filename"
-            done < /tmp/pkg-list.txt
-          fi
-          echo "Downloaded files:"
+          echo "Packages in repo:"
           ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
 
       - name: Re-sign packages
