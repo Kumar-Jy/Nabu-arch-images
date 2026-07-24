@@ -13,11 +13,8 @@ makedepends=(docbook-xsl gobject-introspection python git gtk-doc meson glib2-de
 optdepends=('python: for integration tests'
 'gobject-introspection-runtime: for integration tests')
 backup=(etc/UPower/UPower.conf)
-source=(
-  "$pkgname::git+https://gitlab.freedesktop.org/upower/upower.git"
-  'no-negative-current-check.patch'
-)
-md5sums=('SKIP' 'SKIP')
+source=("$pkgname::git+https://gitlab.freedesktop.org/upower/upower.git")
+md5sums=('SKIP')
 provides=("$_pkgname=${pkgver%%.r*}-${pkgrel}")
 conflicts=("$_pkgname")
 
