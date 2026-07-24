@@ -16,8 +16,7 @@ jobs:
   build-gnome-image:
     name: Build GNOME image
     runs-on: ubuntu-24.04-arm
-    permissions:
-      actions: read
+
     steps:
       - name: Update apt cache
         run: |
