@@ -41,6 +41,23 @@ jobs:
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
           echo "Using run ID: $RUN_ID"
 
+      - name: Resolve atomic branch run IDs
+        id: atomic
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          GH_API="https://api.github.com/repos/${{ github.repository }}"
+
+          GNOME_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "$GH_API/actions/workflows/build-gnome.yml/runs?branch=atomic&status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id // ""')
+          PLASMA_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "$GH_API/actions/workflows/build-plasma.yml/runs?branch=atomic&status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id // ""')
+
+          echo "gnome_run_id=$GNOME_ID" >> $GITHUB_OUTPUT
+          echo "plasma_run_id=$PLASMA_ID" >> $GITHUB_OUTPUT
+
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip jq
 
@@ -80,6 +97,26 @@ jobs:
           GNOME_ID=$(echo "$GNOME_RES" | jq -r '.id')
           echo "gnome_url=https://pixeldrain.com/u/$GNOME_ID" >> $GITHUB_OUTPUT
 
+      - name: Upload atomic artifacts to Pixeldrain
+        id: upload-atomic
+        run: |
+          if [ -n "${{ steps.atomic.outputs.plasma_run_id }}" ]; then
+            echo "Uploading atomic Plasma artifact..."
+            curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.atomic.outputs.plasma_run_id }}/Nabu-alarm-atomic-plasma-installer.zip"
+            RES=$(curl -s -T Nabu-alarm-atomic-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            ID=$(echo "$RES" | jq -r '.id')
+            echo "plasma_url=https://pixeldrain.com/u/$ID" >> $GITHUB_OUTPUT
+            rm -f Nabu-alarm-atomic-plasma-installer.zip
+          fi
+          if [ -n "${{ steps.atomic.outputs.gnome_run_id }}" ]; then
+            echo "Uploading atomic GNOME artifact..."
+            curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/${{ steps.atomic.outputs.gnome_run_id }}/Nabu-alarm-atomic-gnome-installer.zip"
+            RES=$(curl -s -T Nabu-alarm-atomic-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            ID=$(echo "$RES" | jq -r '.id')
+            echo "gnome_url=https://pixeldrain.com/u/$ID" >> $GITHUB_OUTPUT
+            rm -f Nabu-alarm-atomic-gnome-installer.zip
+          fi
+
       - name: Build release notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -88,6 +125,16 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ steps.resolve.outputs.run_id }}" \
             | jq -r '.created_at // ""')
           BUILD_DATE=$(date -d "$CREATED" +%d.%m.%Y 2>/dev/null || echo "latest")
+
+          RUN_ID="${{ steps.resolve.outputs.run_id }}"
+          REPO="${{ github.repository }}"
+          GH_BASE="https://github.com/$REPO/actions/runs/$RUN_ID"
+          NL_BASE="https://nightly.link/$REPO/actions/runs/$RUN_ID"
+
+          ATOMIC_GNOME_RUN="${{ steps.atomic.outputs.gnome_run_id }}"
+          ATOMIC_PLASMA_RUN="${{ steps.atomic.outputs.plasma_run_id }}"
+          NL_BASE_GNOME="https://nightly.link/$REPO/actions/runs/$ATOMIC_GNOME_RUN/Nabu-alarm-atomic-gnome-installer.zip"
+          NL_BASE_PLASMA="https://nightly.link/$REPO/actions/runs/$ATOMIC_PLASMA_RUN/Nabu-alarm-atomic-plasma-installer.zip"
 
           cat > release-notes.md << BODY
           Built images
@@ -108,11 +155,80 @@ jobs:
 
           ## Downloads
 
-          - [Plasma Installer (Pixeldrain)](${{ steps.upload.outputs.plasma_url }})
-          - [GNOME Installer (Pixeldrain)](${{ steps.upload.outputs.gnome_url }})
+          ### Normal Builds:
 
-          Rootfs images are also available from the artifacts section of the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ steps.resolve.outputs.run_id }}).
+          Action artifact link
+          - [Plasma Installer Zip](${NL_BASE})
+          - [GNOME Installer Zip](${NL_BASE})
+
           BODY
+
+          PLASMA_PD_URL="${{ steps.upload.outputs.plasma_url }}"
+          GNOME_PD_URL="${{ steps.upload.outputs.gnome_url }}"
+          echo "" >> release-notes.md
+          echo "Pixeldrain Downloads link:" >> release-notes.md
+          echo "" >> release-notes.md
+          if [ -n "$PLASMA_PD_URL" ]; then
+            echo "- [Plasma Installer (Pixeldrain)]($PLASMA_PD_URL)" >> release-notes.md
+          fi
+          if [ -n "$GNOME_PD_URL" ]; then
+            echo "- [GNOME Installer (Pixeldrain)]($GNOME_PD_URL)" >> release-notes.md
+          fi
+
+          ATOMIC_PLASMA_PD_URL="${{ steps.upload-atomic.outputs.plasma_url }}"
+          ATOMIC_GNOME_PD_URL="${{ steps.upload-atomic.outputs.gnome_url }}"
+          if [ -n "$ATOMIC_GNOME_RUN" ] || [ -n "$ATOMIC_PLASMA_RUN" ]; then
+            echo "" >> release-notes.md
+            echo "--" >> release-notes.md
+            echo "" >> release-notes.md
+            echo "### Atomic Builds:" >> release-notes.md
+            echo "" >> release-notes.md
+            if [ -n "$ATOMIC_GNOME_RUN" ]; then
+              echo "- [GNOME Installer (Atomic)](${NL_BASE_GNOME})" >> release-notes.md
+            fi
+            if [ -n "$ATOMIC_PLASMA_RUN" ]; then
+              echo "- [Plasma Installer (Atomic)](${NL_BASE_PLASMA})" >> release-notes.md
+            fi
+            echo "" >> release-notes.md
+            echo "Pixeldrain Downloads link:" >> release-notes.md
+            echo "" >> release-notes.md
+            if [ -n "$ATOMIC_PLASMA_PD_URL" ]; then
+              echo "- [Plasma Installer (Pixeldrain)]($ATOMIC_PLASMA_PD_URL)" >> release-notes.md
+            fi
+            if [ -n "$ATOMIC_GNOME_PD_URL" ]; then
+              echo "- [GNOME Installer (Pixeldrain)]($ATOMIC_GNOME_PD_URL)" >> release-notes.md
+            fi
+          fi
+
+      - name: Generate download scripts
+        run: |
+          mkdir -p scripts-tmp
+          RUN_ID="${{ steps.resolve.outputs.run_id }}"
+          REPO="${{ github.repository }}"
+
+          echo '#!/usr/bin/env bash' > scripts-tmp/get-gnome.sh
+          echo 'set -euo pipefail' >> scripts-tmp/get-gnome.sh
+          echo "REPO=\"$REPO\"" >> scripts-tmp/get-gnome.sh
+          echo "RUN_ID=\"$RUN_ID\"" >> scripts-tmp/get-gnome.sh
+          echo 'ARTIFACT="arch-nabu-installer-gnome"' >> scripts-tmp/get-gnome.sh
+          echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-gnome.sh
+          echo 'echo "Downloading GNOME installer from:"' >> scripts-tmp/get-gnome.sh
+          echo 'echo "  $URL"' >> scripts-tmp/get-gnome.sh
+          echo 'curl -fL "$URL" -o nabu-gnome-installer.zip' >> scripts-tmp/get-gnome.sh
+          echo 'echo "Saved: nabu-gnome-installer.zip"' >> scripts-tmp/get-gnome.sh
+          chmod +x scripts-tmp/get-gnome.sh
+
+          echo '#!/usr/bin/env bash' > scripts-tmp/get-plasma.sh
+          echo 'set -euo pipefail' >> scripts-tmp/get-plasma.sh
+          echo "REPO=\"$REPO\"" >> scripts-tmp/get-plasma.sh
+          echo "RUN_ID=\"$RUN_ID\"" >> scripts-tmp/get-plasma.sh
+          echo 'ARTIFACT="arch-nabu-installer-plasma"' >> scripts-tmp/get-plasma.sh
+          echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-plasma.sh
+          echo 'echo "Downloading Plasma installer from:"' >> scripts-tmp/get-plasma.sh
+          echo 'echo "  $URL"' >> scripts-tmp/get-plasma.sh
+          echo 'curl -fL "$URL" -o nabu-plasma-installer.zip' >> scripts-tmp/get-plasma.sh
+          echo 'echo "Saved: nabu-plasma-installer.zip"' >> scripts-tmp/get-plasma.sh
+          chmod +x scripts-tmp/get-plasma.sh
 
       - name: Update release
         env:
@@ -120,8 +236,13 @@ jobs:
         run: |
           gh release delete arch-nabu --yes 2>/dev/null || true
           sleep 2
+
+          files=""
+          for f in scripts-tmp/get-*.sh; do
+            [ -f "$f" ] && files="$files $f"
+          done
+
           gh release create arch-nabu \
             --title "arch-nabu" \
             --notes-file release-notes.md \
-            arch-nabu-installer-gnome.zip \
-            arch-nabu-installer-plasma.zip
+            $files
