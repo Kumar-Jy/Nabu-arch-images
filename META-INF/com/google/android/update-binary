@@ -95,12 +95,12 @@ fi;
 
 # If there is separate boot.img need to be flashed
 unzip -o "$ZIPFILE" "images/boot.img" -d "$tmp" 2>/dev/null;
-if [ ! -f "$tmp/image/boot.img" ]; then
+if [ ! -f "$tmp/images/boot.img" ]; then
   ui_print "No separate boot.img found, skipping...";
 else
   umount -lf "$cust_part" 2>/dev/null;
   "$mke2fs" -t ext4 -F "$cust_part" || abort "Failed to format cust partition";
-  dd if="$tmp/image/boot.img" of="$cust_part" || abort "Failed to flash boot.img to cust partition!";
+  dd if="$tmp/images/boot.img" of="$cust_part" || abort "Failed to flash boot.img to cust partition!";
 fi;
 
 umount -lf "$esp_part" "$win_part" 2>/dev/null;
