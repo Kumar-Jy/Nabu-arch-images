@@ -3,10 +3,6 @@ name: Arch repo
 on:
   workflow_dispatch:
 
-env:
-  RODRIGUEZST_URL: https://github.com/rodriguezst/arch-repo/releases/download/aarch64
-  NABU_ALARM_URL: https://nabu-alarm.github.io/repo
-
 jobs:
   build-repo:
     name: Build pacman repository
@@ -15,13 +11,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y pacman-contrib gnupg
-          # Install GitHub CLI
+          sudo apt-get install -y podman gnupg
           (type -p wget >/dev/null || sudo apt-get install wget -y) \
             && sudo mkdir -p -m 755 /etc/apt/keyrings \
             && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -36,6 +31,11 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
           GPG_KEY_ID: ${{ secrets.REPO_GPG_KEY_ID }}
         run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          gpgconf --reload gpg-agent
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
           gpg --list-keys
 
@@ -50,8 +50,8 @@ jobs:
         run: |
           cd repo/aarch64
           echo "Fetching packages from rodriguezst/arch-repo..."
-          # List all release assets and download .pkg.tar.zst and .pkg.tar.xz files
-          gh release list -R rodriguezst/arch-repo --limit 5 2>/dev/null | while read -r tag rest; do
+          gh release list -R rodriguezst/arch-repo --json tagName -q '.[].tagName' 2>/dev/null | while read -r tag; do
+            [ -z "$tag" ] && continue
             echo "  Release: $tag"
             gh release download "$tag" -R rodriguezst/arch-repo \
               --pattern "*.pkg.tar.zst" \
@@ -59,65 +59,95 @@ jobs:
               --pattern "*.sig" \
               --dir . 2>/dev/null || true
           done
-          echo "Downloaded files:"
           ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
 
       - name: Build local packages (upower-nncc, bootc)
         run: |
-          docker pull archlinux:latest
-          docker run --rm -v ${{ github.workspace }}:/workspace archlinux:latest bash -c '
-            set -e
-            pacman -Syu --noconfirm base-devel sudo git rust
-
-            useradd -m builder
-            echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-            for pkgdir in upower-nncc bootc; do
-              echo "::group::Building $pkgdir..."
-              cp -r /workspace/packages/$pkgdir /home/builder/
-              chown -R builder:builder /home/builder/$pkgdir
-              su - builder -c "cd /home/builder/$pkgdir && makepkg --syncdeps --noconfirm"
-              cp /home/builder/$pkgdir/*.pkg.tar.* /workspace/repo/aarch64/ 2>/dev/null || true
-              echo "::endgroup::"
-            done
-          '
-
-      - name: Show downloaded packages
-        run: |
-          cd repo/aarch64
-          echo "Packages in repo:"
-          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+          for pkgdir in upower-nncc bootc; do
+            echo "::group::Building $pkgdir..."
+            podman run --rm \
+              -v "$(pwd)/packages/$pkgdir:/work" \
+              -v "$(pwd)/repo/aarch64:/output" \
+              -w /work \
+              menci/archlinuxarm:base \
+              sh -c "
+                sed -i '/^#DisableSandbox/s/^#//' /etc/pacman.conf
+                echo 'DisableSandbox' >> /etc/pacman.conf
+                pacman-key --init
+                pacman-key --populate archlinuxarm
+                pacman -Syu --noconfirm
+                useradd -m builder
+                chown -R builder:builder /work /output
+                su builder -c 'cd /work && makepkg -s --noconfirm --skipchecksums'
+                cp /work/*.pkg.tar.* /output/ 2>/dev/null || true
+              "
+            echo "::endgroup::"
+          done
 
       - name: Re-sign packages
         run: |
           cd repo/aarch64
           GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
-          # Re-sign all packages
-          for pkg in *.pkg.tar.zst *.pkg.tar.xz 2>/dev/null; do
-            [ -f "$pkg" ] || continue
+          shopt -s nullglob
+          for pkg in *.pkg.tar.zst *.pkg.tar.xz; do
             echo "Signing $pkg..."
-            gpg --batch --yes --local-user "$GPG_KEY_ID" \
+            gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$GPG_KEY_ID" \
               --detach-sign --output "${pkg}.sig" "$pkg"
           done
 
       - name: Create pacman database
         run: |
-          cd repo/aarch64
-          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
-          # Remove old database files
-          rm -f aarch64.db* aarch64.files*
-          # Create new database
-          repo-add --sign --key "$GPG_KEY_ID" aarch64.db.tar.gz *.pkg.tar.zst *.pkg.tar.xz 2>/dev/null || true
-          # If repo-add failed (no packages), create empty database
-          if [ ! -f aarch64.db.tar.gz ]; then
-            touch aarch64.db.tar.gz
+          podman run --rm \
+            -v "$(pwd)/repo/aarch64:/repo" \
+            -w /repo \
+            menci/archlinuxarm:base \
+            sh -c "
+              sed -i '/^#DisableSandbox/s/^#//' /etc/pacman.conf
+              echo 'DisableSandbox' >> /etc/pacman.conf
+              pacman-key --init
+              pacman-key --populate
+              pacman -Syu --noconfirm
+              pacman -S --noconfirm pacman-contrib
+              shopt -s nullglob
+              rm -f nabu.db* nabu.files*
+              repo-add nabu.db.tar.gz *.pkg.tar.zst *.pkg.tar.xz
+            " || true
+          if [ ! -f repo/aarch64/nabu.db.tar.gz ]; then
+            touch repo/aarch64/nabu.db.tar.gz
           fi
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo/aarch64
-          destination_dir: aarch64
-          keep_files: true
-          force_orphan: false
+      - name: Sign database files
+        run: |
+          GPG_KEY_ID="${{ secrets.REPO_GPG_KEY_ID }}"
+          cd repo/aarch64
+          for db in nabu.db.tar.gz nabu.files.tar.gz; do
+            [ -f "$db" ] && gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$GPG_KEY_ID" \
+              --detach-sign --output "${db}.sig" "$db"
+          done
+
+      - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          gh release delete repo --yes 2>/dev/null || true
+          git push --delete origin repo 2>/dev/null || true
+
+          shopt -s nullglob
+          ASSETS=(
+            nabu.db
+            nabu.db.tar.gz
+            nabu.db.tar.gz.sig
+            nabu.files
+            nabu.files.tar.gz
+            nabu.files.tar.gz.sig
+            *.pkg.tar.zst
+            *.pkg.tar.zst.sig
+            *.pkg.tar.xz
+            *.pkg.tar.xz.sig
+          )
+          [ -f nabu-repo.asc ] && ASSETS+=(nabu-repo.asc)
+          gh release create repo \
+            --title "Pacman Repository" \
+            --notes "Automated build of the nabu pacman repository" \
+            "${ASSETS[@]}"
