@@ -23,7 +23,7 @@ conflicts=("$_pkgname")
 
 prepare() {
   cd $pkgname
-  git apply ../no-negative-current-check.patch
+  sed -i '/^[[:space:]]*if (values.state != UP_DEVICE_STATE_FULLY_CHARGED &&/,/^[[:space:]]*values.state = UP_DEVICE_STATE_DISCHARGING;/d' src/linux/up-device-supply-battery.c
 }
 
 pkgver() {
