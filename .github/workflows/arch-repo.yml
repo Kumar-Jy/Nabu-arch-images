@@ -78,7 +78,7 @@ jobs:
                 pacman -Syu --noconfirm
                 pacman -S --noconfirm base-devel
                 useradd -m builder
-                echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+                echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
                 chown -R builder:builder /work
                 su builder -c 'cd /work && makepkg -s --noconfirm --skipchecksums'
                 cp /work/*.pkg.tar.* /output/ 2>/dev/null || true
