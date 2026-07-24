@@ -16,8 +16,6 @@ jobs:
   build-base:
     if: ${{ inputs.rebuild_base == true }}
     uses: ./.github/workflows/build-base.yml
-    permissions:
-      contents: read
 
   build-gnome-image:
     name: Build GNOME image
