@@ -160,13 +160,6 @@ jobs:
           systemctl enable tqftpserv rmtfs
           EOF
 
-      - name: Enable nabu wlan service
-        shell: bash
-        run: |
-          sudo arch-chroot ./mountpoint bash - <<'EOF'
-          systemctl enable nabu-pmac
-          EOF
-
       - name: Disable sshd
         shell: bash
         run: |
@@ -195,6 +188,13 @@ jobs:
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           /overlay-post-apply
           rm /overlay-post-apply
+          EOF
+
+      - name: Enable nabu wlan service
+        shell: bash
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl enable nabu-pmac
           EOF
 
       - name: Enable zram-generator
