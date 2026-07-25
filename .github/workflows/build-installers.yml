@@ -368,7 +368,7 @@ jobs:
       - name: Create ESP image
         run: |
           truncate -s 250M ./images/esp.img
-          mkfs.fat -F 32 ./images/esp.img
+          mkfs.fat -F 32 -S 4096 -n EFI ./images/esp.img
           mkdir -p ./esp-mount
           sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI
@@ -511,7 +511,7 @@ jobs:
       - name: Create ESP image
         run: |
           truncate -s 250M ./images/esp.img
-          mkfs.fat -F 32 ./images/esp.img
+          mkfs.fat -F 32 -S 4096 -n EFI ./images/esp.img
           mkdir -p ./esp-mount
           sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI
