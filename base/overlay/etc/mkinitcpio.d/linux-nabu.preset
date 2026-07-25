@@ -4,3 +4,4 @@
 PRESETS=('default')
 
 default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"

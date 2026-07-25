@@ -7,6 +7,6 @@ Target = linux-nabu
 [Action]
 Description = Regenerating UKI for linux-nabu...
 When = PostTransaction
-Exec = /usr/bin/mkinitcpio -P
+Exec = /usr/libexec/nabu/uki-regenerate
 Depends = mkinitcpio
 Depends = linux-nabu

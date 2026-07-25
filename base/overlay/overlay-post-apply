@@ -10,7 +10,15 @@ ALL_kver="$kernver"
 PRESETS=('default')
 
 default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
 PRESET
 
   sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+fi
+
+sed -i '/^IgnorePkg/d' /etc/pacman.conf
+if grep -q '^#IgnorePkg' /etc/pacman.conf; then
+    sed -i '/^#IgnorePkg/c\IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf
+else
+    sed -i '/^\[options\]/a\IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf
 fi

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+kernver="${1:-$(ls /usr/lib/modules/ | sort -V | tail -1)}"
+if [ -z "$kernver" ]; then
+    echo "No kernel version found" >&2
+    exit 1
+fi
+
+echo "Regenerating UKI for kernel ${kernver}..."
+
+cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
+# mkinitcpio preset file for the 'linux-nabu' package
+
+ALL_kver="$kernver"
+
+PRESETS=('default')
+
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
+PRESET
+
+sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+
+ESP="/boot/efi"
+if ! findmnt -M "$ESP" > /dev/null 2>&1; then
+    echo "ESP not mounted at $ESP, attempting mount..."
+    mkdir -p "$ESP"
+    mount PARTLABEL=esp "$ESP" 2>/dev/null || true
+fi
+
+mkdir -p "$ESP/EFI/arch"
+mkinitcpio -P 2>&1 | grep -v 'gzip: stdout: Broken pipe' || true
+
+echo "UKI regeneration complete for kernel ${kernver}"
