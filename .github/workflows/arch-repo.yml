@@ -2,6 +2,8 @@ name: Arch repo
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
 
 jobs:
   build-repo:
@@ -59,11 +61,16 @@ jobs:
               --pattern "*.sig" \
               --dir . 2>/dev/null || true
           done
+          rm -f visual-studio-code-bin*.pkg.tar.* visual-studio-code-bin*.sig 2>/dev/null || true
+          rm -f python2*.pkg.tar.* python2*.sig 2>/dev/null || true
+          rm -f widevine*.pkg.tar.* widevine*.sig 2>/dev/null || true
+          rm -f reboot2android*.pkg.tar.* reboot2android*.sig 2>/dev/null || true
+          rm -f refind-nabu*.pkg.tar.* refind-nabu*.sig 2>/dev/null || true
           ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
 
-      - name: Build local packages (upower-nncc, bootc)
+      - name: Build local packages (upower-nncc, bootc, code, python2, widevine)
         run: |
-          for pkgdir in upower-nncc bootc; do
+          for pkgdir in upower-nncc bootc code python2 widevine; do
             echo "::group::Building $pkgdir..."
             podman run --rm \
               -v "$(pwd)/packages/$pkgdir:/work" \

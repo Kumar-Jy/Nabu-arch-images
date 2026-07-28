@@ -1,0 +1,65 @@
+# Maintainer: Kumar-Jy
+
+pkgname=code
+pkgver=1.130.0
+pkgrel=1
+pkgdesc="Visual Studio Code - Open Source Code Editor (ARM64)"
+arch=('aarch64')
+url="https://code.visualstudio.com"
+license=('MIT')
+depends=(
+  'gtk3' 'libx11' 'libxcb' 'libxcomposite' 'libxdamage'
+  'libxrandr' 'libxfixes' 'libxtst' 'libxss'
+  'nss' 'nspr' 'cairo' 'pango' 'gdk-pixbuf2'
+  'atk' 'at-spi2-atk' 'at-spi2-core' 'dbus-glib'
+  'libxkbfile' 'libsecret' 'alsa-lib'
+  'glib2' 'libgl' 'libegl' 'libdrm'
+)
+provides=('visual-studio-code')
+conflicts=('visual-studio-code-bin')
+source=("https://update.code.visualstudio.com/latest/linux-arm64/stable")
+sha256sums=('SKIP')
+
+pkgver() {
+  python3 -c "import json; print(json.load(open('$srcdir/VSCode-linux-arm64/resources/app/package.json'))['version'])"
+}
+
+# No longer needed since we use default extraction
+# prepare() {
+#   mv "$srcdir/stable" "$srcdir/code.tar.gz"
+# }
+
+package() {
+  mkdir -p "$pkgdir/opt/visual-studio-code"
+  cp -r "$srcdir/VSCode-linux-arm64"/. "$pkgdir/opt/visual-studio-code/"
+  
+  install -dm755 "$pkgdir/usr/bin"
+
+  ln -sf "/opt/visual-studio-code/bin/code" "$pkgdir/usr/bin/code"
+
+  install -Dm644 "$pkgdir/opt/visual-studio-code/resources/app/resources/linux/code.png" \
+    "$pkgdir/usr/share/pixmaps/code.png"
+  install -Dm644 "$pkgdir/opt/visual-studio-code/resources/app/resources/linux/code.png" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/code.png"
+
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/code.desktop" << EOF
+[Desktop Entry]
+Name=Visual Studio Code
+Comment=Code Editing. Redefined.
+GenericName=Text Editor
+Exec=/usr/bin/code %F
+Icon=code
+Type=Application
+StartupNotify=true
+  StartupWMClass=code
+Categories=TextEditor;Development;IDE;
+MimeType=text/plain;inode/directory;
+Actions=new-empty-window;
+Keywords=vscode;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=/usr/bin/code --new-window %F
+Icon=code
+EOF
+}

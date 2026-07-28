@@ -1,0 +1,19 @@
+# Maintainer: Kumar-Jy
+# Source: rodriguezst/arch-repo (prebuilt ARM64 binary, proprietary)
+
+pkgname=widevine
+pkgver=4.10.2710.0
+pkgrel=1
+pkgdesc="Widevine Content Decryption Module for ARM64"
+arch=('aarch64')
+url="https://www.widevine.com/"
+license=('custom:widevine')
+depends=()
+source=("https://github.com/rodriguezst/arch-repo/releases/download/aarch64/widevine-${pkgver}-8-aarch64.pkg.tar.xz")
+sha256sums=('SKIP')
+
+package() {
+  bsdtar -xf "${srcdir}/widevine-${pkgver}-8-aarch64.pkg.tar.xz" \
+    --exclude .PKGINFO --exclude .MTREE --exclude .BUILDINFO --exclude .INSTALL \
+    -C "${pkgdir}"
+}
