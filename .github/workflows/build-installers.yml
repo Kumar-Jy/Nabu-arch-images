@@ -39,7 +39,10 @@ jobs:
 
       - name: Download generic rootfs tarball
         run: |
-          wget "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+          if ! wget "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz; then
+            echo "Primary mirror failed, falling back to GitHub release"
+            wget "https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+          fi
 
       - name: Build rootfs-extractor image
         run: |
@@ -326,7 +329,15 @@ jobs:
       - name: Install GNOME Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack noto-fonts firefox flatpak gnome-software
           EOF
 
@@ -470,7 +481,15 @@ jobs:
       - name: Install Plasma Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak
           EOF
 
