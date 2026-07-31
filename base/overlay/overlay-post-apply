@@ -14,6 +14,9 @@ default_cmdline="/etc/cmdline.d/root.conf"
 PRESET
 
   sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+else
+  echo "ERROR: no kernel modules found in /usr/lib/modules - is linux-nabu installed?" >&2
+  exit 1
 fi
 
 sed -i '/^IgnorePkg/d' /etc/pacman.conf
