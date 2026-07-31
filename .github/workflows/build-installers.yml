@@ -127,8 +127,13 @@ jobs:
 
       - name: Install kernel and headers
         run: |
+          wget "https://nightly.link/Xander-trav/linux-nabu/actions/runs/30599961068/built-packages.zip" -qO built-packages.zip
+          bsdtar -xf built-packages.zip linux-nabu-[0-9]*.pkg.tar.xz linux-nabu-headers-*.pkg.tar.xz
+          sudo cp linux-nabu-[0-9]*.pkg.tar.xz linux-nabu-headers-*.pkg.tar.xz ./mountpoint/tmp/
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm linux-nabu linux-nabu-headers
+          pacman -U --noconfirm /tmp/linux-nabu-[0-9]*.pkg.tar.xz /tmp/linux-nabu-headers-*.pkg.tar.xz
+          rm -f /tmp/linux-nabu-[0-9]*.pkg.tar.xz /tmp/linux-nabu-headers-*.pkg.tar.xz
+          printf '\nIgnorePkg = linux-nabu linux-nabu-headers\n' >> /etc/pacman.conf
           EOF
 
       - name: Install alsa ucm config
