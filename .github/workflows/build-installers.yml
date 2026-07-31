@@ -150,7 +150,7 @@ jobs:
       - name: Install kernel and headers
         run: |
           set -euo pipefail
-          wget "https://nightly.link/Xander-trav/linux-nabu/actions/runs/30599961068/built-packages.zip" -qO built-packages.zip
+          wget "https://nightly.link/Xander-trav/linux-nabu/actions/runs/30638867425/built-packages.zip" -qO built-packages.zip
           bsdtar -xf built-packages.zip 'linux-nabu-[0-9]*.pkg.tar.xz' 'linux-nabu-headers-*.pkg.tar.xz'
           shopt -s nullglob
           pkgfiles=( linux-nabu-[0-9]*.pkg.tar.xz linux-nabu-headers-*.pkg.tar.xz )
