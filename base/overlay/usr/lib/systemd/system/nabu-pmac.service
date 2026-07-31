@@ -8,7 +8,6 @@ ConditionPathExists=/sys/class/net/wlan0
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/nabu-pmac-set
-TimeoutStartSec=10
 
 [Install]
 WantedBy=multi-user.target
