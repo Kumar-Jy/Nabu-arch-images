@@ -69,7 +69,10 @@ jobs:
       - name: Configure pacman mirrorlist
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /etc/pacman.d/mirrorlist
+          cat > /etc/pacman.d/mirrorlist <<'EOM'
+          Server = http://ca.us.mirror.archlinuxarm.org/$arch/$repo
+          Server = http://nj.us.mirror.archlinuxarm.org/$arch/$repo
+          EOM
           EOF
 
       - name: Delete default user
@@ -98,7 +101,15 @@ jobs:
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf
-          pacman -Sy --noconfirm
+          n=0
+          until pacman -Sy --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Sy failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           EOF
 
       - name: Remove generic kernel
@@ -110,7 +121,15 @@ jobs:
       - name: Update system
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           EOF
 
       - name: Install firmwares
