@@ -11,7 +11,7 @@ makedepends=('bc' 'git' 'kmod' 'inetutils' 'dtc' 'python3' 'libelf')
 options=('!strip')
 _srcname=linux-nabu
 _dtbfile='qcom/sm8150-xiaomi-nabu.dtb'
-source=("$_srcname::git+https://github.com/TwinbornPlate75/linux-nabu.git#branch=sm8150/6.18#depth=1")
+source=("$_srcname::git+https://github.com/TwinbornPlate75/linux-nabu.git#branch=sm8150/6.18")
 sha256sums=('SKIP')
 
 prepare() {
