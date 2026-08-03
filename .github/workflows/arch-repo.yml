@@ -106,8 +106,17 @@ jobs:
           path: pkg-cache
           key: ${{ matrix.pkg }}-${{ steps.sig.outputs.sig }}
 
+      - name: Decide whether to build
+        id: decide
+        run: |
+          if [[ "${{ steps.cache.outputs.cache-hit }}" == "true" ]] && ls pkg-cache/*.pkg.tar.* >/dev/null 2>&1; then
+            echo "need-build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "need-build=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build package
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.decide.outputs.need-build == 'true'
         run: |
           mkdir -p pkg-cache
           echo "::group::Building ${{ matrix.pkg }}..."
@@ -133,7 +142,7 @@ jobs:
           ls -la pkg-cache/
 
       - name: Save cache
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.decide.outputs.need-build == 'true'
         uses: actions/cache/save@v4
         with:
           path: pkg-cache
