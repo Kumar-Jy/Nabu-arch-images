@@ -8,7 +8,7 @@
 - Xiaomi Pad 5 (nabu)
 - Unlocked bootloader
 - [TWRP](https://github.com/Kumar-Jy/twrp_device_xiaomi_nabu/releases/tag/mod-hybrid) custom recovery
-- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases)
+- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases/tag/arch-nabu)
 
 ---
 
