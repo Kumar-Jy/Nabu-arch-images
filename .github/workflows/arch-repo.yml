@@ -197,6 +197,19 @@ jobs:
           mkdir -p repo/aarch64
           cp repo/nabu-repo.asc repo/aarch64/ 2>/dev/null || true
 
+      - name: Download existing repo packages (baseline)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd repo/aarch64
+          echo "Fetching previous release packages as baseline..."
+          gh release download repo -R "$GITHUB_REPOSITORY" \
+            --pattern "*.pkg.tar.zst" \
+            --pattern "*.pkg.tar.xz" \
+            --pattern "*.sig" \
+            --dir . 2>/dev/null || echo "  No previous release packages"
+          ls -la *.pkg.tar.* 2>/dev/null || echo "  (empty baseline)"
+
       - name: Download local package artifacts
         uses: actions/download-artifact@v4
         with:
@@ -208,8 +221,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd repo/aarch64
           echo "Fetching packages from rodriguezst/arch-repo..."
+          mkdir -p repo/staging-rodriguezst
+          cd repo/staging-rodriguezst
           gh release list -R rodriguezst/arch-repo --json tagName -q '.[].tagName' 2>/dev/null | while read -r tag; do
             [ -z "$tag" ] && continue
             echo "  Release: $tag"
@@ -225,7 +239,24 @@ jobs:
           rm -f reboot2android*.pkg.tar.* reboot2android*.sig 2>/dev/null || true
           rm -f refind-nabu*.pkg.tar.* refind-nabu*.sig 2>/dev/null || true
           rm -f linux-nabu*.pkg.tar.* linux-nabu*.sig 2>/dev/null || true
-          ls -la *.pkg.tar.* 2>/dev/null || echo "  No packages found"
+          cp *.pkg.tar.* *.sig ../aarch64/ 2>/dev/null || true
+          echo "Copied rodriguezst packages:"
+          ls -la ../aarch64/*.pkg.tar.* 2>/dev/null || echo "  none"
+
+      - name: Drop superseded versions of rebuilt packages
+        run: |
+          cd repo/aarch64
+          shopt -s nullglob
+          for f in *.pkg.tar.zst; do
+            pkgname=$(bsdtar -xOf "$f" .PKGINFO 2>/dev/null | sed -n 's/^pkgname = //p' | tr -d '\r' | head -n1)
+            [ -z "$pkgname" ] && continue
+            echo "Keeping rebuilt package: $f (pkgname: $pkgname)"
+            for old in "${pkgname}"-*.pkg.tar.*; do
+              [ "$old" = "$f" ] && continue
+              echo "  removing superseded $old"
+              rm -f "$old" "${old}.sig"
+            done
+          done
 
       - name: Fix permissions
         run: sudo chown -R "$USER:$USER" repo/aarch64/
