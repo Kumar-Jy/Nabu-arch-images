@@ -247,7 +247,7 @@ jobs:
         run: |
           cd repo/aarch64
           shopt -s nullglob
-          for f in *.pkg.tar.zst; do
+          for f in *.pkg.tar.zst *.pkg.tar.xz; do
             pkgname=$(bsdtar -xOf "$f" .PKGINFO 2>/dev/null | sed -n 's/^pkgname = //p' | tr -d '\r' | head -n1)
             [ -z "$pkgname" ] && continue
             echo "Keeping rebuilt package: $f (pkgname: $pkgname)"
