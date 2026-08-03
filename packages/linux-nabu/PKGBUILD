@@ -1,0 +1,142 @@
+# Maintainer: Kumar-Jy
+# Kernel built from TwinbornPlate75/linux-nabu (branch sm8150/6.18)
+
+pkgbase=linux-nabu
+pkgver=6.18.41
+pkgrel=1
+arch=('aarch64')
+url="https://github.com/TwinbornPlate75/linux-nabu"
+license=('GPL2')
+makedepends=('bc' 'git' 'kmod' 'inetutils' 'dtc' 'python3' 'libelf')
+options=('!strip')
+_srcname=linux-nabu
+_dtbfile='qcom/sm8150-xiaomi-nabu.dtb'
+source=("$_srcname::git+https://github.com/TwinbornPlate75/linux-nabu.git#branch=sm8150/6.18#depth=1")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "${srcdir}/${_srcname}"
+
+  echo "-${pkgrel}" > localversion.10-pkgrel
+  echo "${pkgbase#linux}" > localversion.20-pkgname
+
+  make ARCH=arm64 defconfig
+  cat arch/arm64/configs/sm8150.config >> .config
+  make ARCH=arm64 olddefconfig
+}
+
+build() {
+  cd "${srcdir}/${_srcname}"
+
+  make ARCH=arm64 prepare
+  make -s ARCH=arm64 kernelrelease > version
+
+  unset LDFLAGS
+  make ${MAKEFLAGS} ARCH=arm64 Image Image.gz modules
+  make ${MAKEFLAGS} ARCH=arm64 DTC_FLAGS="-@" dtbs
+}
+
+_package_common() {
+  echo "Installing boot image and dtbs..."
+  install -Dm644 arch/arm64/boot/Image "${pkgdir}/boot/vmlinux-${kernver}"
+  install -Dm644 arch/arm64/boot/Image.gz "${pkgdir}/boot/vmlinuz-${kernver}"
+  install -Dm644 arch/arm64/boot/dts/${_dtbfile} "${pkgdir}/boot/dtb-${kernver}"
+
+  echo "Installing modules..."
+  make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 DEPMOD=/doesntexist modules_install
+
+  rm "$pkgdir/usr/lib/modules/$kernver/build"
+}
+
+_package() {
+  pkgdesc="The Linux Kernel and modules for the Xiaomi Pad 5 (nabu) - TwinbornPlate75 6.18"
+  depends=('coreutils' 'linux-firmware' 'kmod' 'mkinitcpio>=0.7')
+  optdepends=('wireless-regdb: to set the correct wireless channels of your country')
+  provides=("linux=${pkgver}")
+  conflicts=('linux')
+
+  cd "${srcdir}/${_srcname}"
+  local kernver="$(<version)"
+
+  _package_common
+}
+
+_package-headers() {
+  pkgdesc="Header files and scripts for building modules for the TwinbornPlate75 linux-nabu kernel"
+  provides=("linux-headers=${pkgver}")
+  conflicts=('linux-headers')
+
+  cd "${srcdir}/${_srcname}"
+  local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
+
+  echo "Installing build files..."
+  install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
+    localversion.* version vmlinux
+  install -Dt "$builddir/kernel" -m644 kernel/Makefile
+  install -Dt "$builddir/arch/arm64" -m644 arch/arm64/Makefile
+  cp -t "$builddir" -a scripts
+
+  mkdir -p "$builddir"/{fs/xfs,mm}
+
+  echo "Installing headers..."
+  cp -t "$builddir" -a include
+  cp -t "$builddir/arch/arm64" -a arch/arm64/include
+  install -Dt "$builddir/arch/arm64/kernel" -m644 arch/arm64/kernel/asm-offsets.s
+  mkdir -p "$builddir/arch/arm"
+  cp -t "$builddir/arch/arm" -a arch/arm/include
+
+  install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
+  install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
+
+  install -Dt "$builddir/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
+  install -Dt "$builddir/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
+  install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
+  install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
+  install -Dt "$builddir/drivers/iio/common/hid-sensors" -m644 drivers/iio/common/hid-sensors/*.h
+
+  echo "Installing KConfig files..."
+  find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
+
+  echo "Removing unneeded architectures..."
+  local arch
+  for arch in "$builddir"/arch/*/; do
+    [[ $arch = */arm64/ || $arch == */arm/ ]] && continue
+    echo "Removing $(basename "$arch")"
+    rm -r "$arch"
+  done
+
+  echo "Removing documentation..."
+  rm -r "$builddir/Documentation"
+
+  echo "Removing broken symlinks..."
+  find -L "$builddir" -type l -printf 'Removing %P\n' -delete
+
+  echo "Removing loose objects..."
+  find "$builddir" -type f -name '*.o' -printf 'Removing %P\n' -delete
+
+  echo "Stripping build tools..."
+  local file
+  while read -rd '' file; do
+    case "$(file -bi "$file")" in
+      application/x-sharedlib\;*)      # Libraries (.so)
+        strip -v $STRIP_SHARED "$file" ;;
+      application/x-archive\;*)        # Libraries (.a)
+        strip -v $STRIP_STATIC "$file" ;;
+      application/x-executable\;*)     # Binaries
+        strip -v $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) # Relocatable binaries
+        strip -v $STRIP_SHARED "$file" ;;
+    esac
+  done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
+
+  echo "Adding symlink..."
+  mkdir -p "$pkgdir/usr/src"
+  ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
+}
+
+pkgname=("${pkgbase}" "${pkgbase}-headers")
+for _p in ${pkgname[@]}; do
+  eval "package_${_p}() {
+    _package${_p#${pkgbase}}
+  }"
+done
