@@ -2,17 +2,72 @@ name: Arch repo
 
 on:
   workflow_dispatch:
+    inputs:
+      build_upower_nncc:
+        type: boolean
+        default: true
+        description: Build upower-nncc
+      build_bootc:
+        type: boolean
+        default: true
+        description: Build bootc
+      build_code:
+        type: boolean
+        default: true
+        description: Build code
+      build_python2:
+        type: boolean
+        default: true
+        description: Build python2
+      build_widevine:
+        type: boolean
+        default: true
+        description: Build widevine
+      build_linux_nabu:
+        type: boolean
+        default: true
+        description: Build linux-nabu
   schedule:
     - cron: '0 3 * * 1'
 
 jobs:
+  resolve-packages:
+    name: Resolve package matrix
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      pkg: ${{ steps.set-matrix.outputs.pkg }}
+    steps:
+      - name: Resolve which packages to build
+        id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            jq -n -c \
+              --argjson upower_nncc "${{ inputs.build_upower_nncc }}" \
+              --argjson bootc "${{ inputs.build_bootc }}" \
+              --argjson code "${{ inputs.build_code }}" \
+              --argjson python2 "${{ inputs.build_python2 }}" \
+              --argjson widevine "${{ inputs.build_widevine }}" \
+              --argjson linux_nabu "${{ inputs.build_linux_nabu }}" \
+              '[ if $upower_nncc then "upower-nncc" else empty end,
+                 if $bootc then "bootc" else empty end,
+                 if $code then "code" else empty end,
+                 if $python2 then "python2" else empty end,
+                 if $widevine then "widevine" else empty end,
+                 if $linux_nabu then "linux-nabu" else empty end ]' > matrix.json
+          else
+            echo '["upower-nncc","bootc","code","python2","widevine","linux-nabu"]' > matrix.json
+          fi
+          pkg=$(cat matrix.json)
+          echo "pkg=$pkg" >> "$GITHUB_OUTPUT"
+
   build-packages:
     name: Build ${{ matrix.pkg }}
+    needs: resolve-packages
     runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
-        pkg: [upower-nncc, bootc, code, python2, widevine, linux-nabu]
+        pkg: ${{ fromJSON(needs.resolve-packages.outputs.pkg) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -95,6 +150,7 @@ jobs:
     name: Assemble pacman repository
     runs-on: ubuntu-24.04-arm
     needs: build-packages
+    if: ${{ needs.build-packages.result == 'success' }}
     permissions:
       contents: write
     steps:
