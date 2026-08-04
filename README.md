@@ -83,6 +83,69 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 
 ---
 
+## Updating the Kernel
+
+### Official update (from the nabu repository)
+
+```bash
+sudo pacman -Syu
+```
+
+The `linux-nabu` package ships an mkinitcpio preset and an install scriptlet, so the
+UKI (`/boot/efi/EFI/arch/arch-linux-nabu.efi`) is rebuilt automatically on every
+kernel install/upgrade. A device-side pacman hook (`90-linux-nabu.uki.hook` →
+`/usr/libexec/nabu/uki-regenerate`) acts as the fallback: it refreshes the preset
+to the newest installed kernel and rebuilds, and repairs the UKI if the preset is
+ever missing or stale.
+
+### Local / custom (non-official) kernel update
+
+If you built your own kernel package:
+
+```bash
+# 1. Build your own package (bump pkgver / pkgrel on EVERY build!)
+makepkg
+# 2. Install it directly
+sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.xz
+```
+
+> pacman decides "is this an update?" using only `pkgver`/`pkgrel`, never the kernel
+> version string. If those don't change, pacman reports *"up to date"* and skips the
+> install, so the UKI won't be regenerated. Always bump `pkgver` (or `pkgrel`) for
+> each new build.
+
+If your package ships the preset + install scriptlet (like the official `PKGBUILD`),
+the UKI regenerates automatically. If you built it from a **different** PKGBUILD
+(no preset/scriptlet), regenerate manually with the fallback:
+
+```bash
+sudo /usr/libexec/nabu/uki-regenerate
+```
+
+Or, if the script is unavailable, do it by hand:
+
+```bash
+kernver=$(ls /usr/lib/modules/ | sort -V | tail -1)
+sudo tee /etc/mkinitcpio.d/linux-nabu.preset > /dev/null << EOF
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-${kernver}"
+PRESETS=('default')
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
+EOF
+sudo sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+sudo mkinitcpio -P
+```
+
+Verify the UKI was produced:
+
+```bash
+findmnt /boot/efi
+ls -l /boot/efi/EFI/arch/
+```
+
+---
+
 ## Credit & Thanks
 
 | Component | Description | Author |
