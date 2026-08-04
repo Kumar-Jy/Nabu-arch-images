@@ -149,28 +149,9 @@ jobs:
 
       - name: Install kernel and headers
         run: |
-          set -euo pipefail
-          wget "https://nightly.link/Xander-trav/linux-nabu/actions/runs/30638867425/built-packages.zip" -qO built-packages.zip
-          bsdtar -xf built-packages.zip 'linux-nabu-[0-9]*.pkg.tar.xz' 'linux-nabu-headers-*.pkg.tar.xz'
-          shopt -s nullglob
-          pkgfiles=( linux-nabu-[0-9]*.pkg.tar.xz linux-nabu-headers-*.pkg.tar.xz )
-          if [ ${#pkgfiles[@]} -eq 0 ]; then
-            echo "ERROR: no kernel packages extracted from built-packages.zip" >&2
-            exit 1
-          fi
-          echo "Extracted packages:"
-          ls -l "${pkgfiles[@]}"
-          sudo install -d "$GITHUB_WORKSPACE/mountpoint/var/cache/pacman/pkg/"
-          sudo cp "${pkgfiles[@]}" "$GITHUB_WORKSPACE/mountpoint/var/cache/pacman/pkg/"
-          chroot_pkgs=()
-          for f in "${pkgfiles[@]}"; do
-            chroot_pkgs+=( "/var/cache/pacman/pkg/${f##*/}" )
-          done
-          if ! sudo arch-chroot ./mountpoint pacman -U --noconfirm "${chroot_pkgs[@]}"; then
-            echo "ERROR: installing linux-nabu packages failed" >&2
-            exit 1
-          fi
-          sudo arch-chroot ./mountpoint rm -f "${chroot_pkgs[@]}"
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm linux-nabu linux-nabu-headers
+          EOF
 
       - name: Install alsa ucm config
         run: |
