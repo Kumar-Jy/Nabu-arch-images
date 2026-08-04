@@ -7,6 +7,11 @@ on:
         description: "Also create a GitHub release after build"
         type: boolean
         default: false
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.16.0-3 for rodriguezst backup); empty = latest in [nabu] repo"
+        type: string
+        default: ""
+        required: false
 
 jobs:
   build-base-image:
@@ -149,9 +154,15 @@ jobs:
 
       - name: Install kernel and headers
         run: |
-          sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm linux-nabu linux-nabu-headers
-          EOF
+          if [ -z "${{ inputs.kernel_version }}" ]; then
+            sudo arch-chroot ./mountpoint bash - <<'EOF'
+            pacman -S --noconfirm linux-nabu linux-nabu-headers
+            EOF
+          else
+            sudo arch-chroot ./mountpoint bash - <<'EOF'
+            pacman -S --noconfirm "linux-nabu=${{ inputs.kernel_version }}" "linux-nabu-headers=${{ inputs.kernel_version }}"
+            EOF
+          fi
 
       - name: Install alsa ucm config
         run: |
