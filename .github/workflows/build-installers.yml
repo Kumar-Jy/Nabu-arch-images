@@ -155,14 +155,11 @@ jobs:
       - name: Install kernel and headers
         run: |
           if [ -z "${{ inputs.kernel_version }}" ]; then
-            sudo arch-chroot ./mountpoint bash - <<'EOF'
-            pacman -S --noconfirm linux-nabu linux-nabu-headers
-            EOF
+            KERNEL_PKGS="linux-nabu linux-nabu-headers"
           else
-            sudo arch-chroot ./mountpoint bash - <<'EOF'
-            pacman -S --noconfirm "linux-nabu=${{ inputs.kernel_version }}" "linux-nabu-headers=${{ inputs.kernel_version }}"
-            EOF
+            KERNEL_PKGS="linux-nabu=${{ inputs.kernel_version }} linux-nabu-headers=${{ inputs.kernel_version }}"
           fi
+          sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm $KERNEL_PKGS"
 
       - name: Install alsa ucm config
         run: |
