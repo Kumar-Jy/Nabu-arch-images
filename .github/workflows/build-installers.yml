@@ -41,7 +41,7 @@ jobs:
         run: |
           if ! wget --timeout=30 --tries=2 --waitretry=5 "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz; then
             echo "Primary mirror failed, falling back to GitHub release"
-            wget --timeout=30 --tries=2 "https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+            wget --timeout=30 --tries=2 "https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
           fi
 
       - name: Build rootfs-extractor image
@@ -103,7 +103,7 @@ jobs:
       - name: Add nabu repo
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf
+          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' >> /etc/pacman.conf
           n=0
           until pacman -Sy --noconfirm; do
             n=$((n+1))
