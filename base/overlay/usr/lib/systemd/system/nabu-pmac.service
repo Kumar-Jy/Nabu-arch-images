@@ -7,7 +7,7 @@ After=sys-subsystem-net-devices-wlan0.device
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/nabu-pmac-set
-TimeoutStartSec=20
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
