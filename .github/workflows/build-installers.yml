@@ -155,11 +155,22 @@ jobs:
       - name: Install kernel and headers
         run: |
           if [ -z "${{ inputs.kernel_version }}" ]; then
-            KERNEL_PKGS="linux-nabu linux-nabu-headers"
+            sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm linux-nabu linux-nabu-headers"
           else
-            KERNEL_PKGS="linux-nabu=${{ inputs.kernel_version }} linux-nabu-headers=${{ inputs.kernel_version }}"
+            # Install a specific kernel version directly from the release URL.
+            # repo-add only tracks one version per name, so -S "pkg=ver" cannot
+            # resolve older versions; -U bypasses the repo database.
+            sudo arch-chroot ./mountpoint bash -c "
+              set -e
+              BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo
+              for pkg in linux-nabu linux-nabu-headers; do
+                url=\$BASE/\${pkg}-${{ inputs.kernel_version }}-aarch64.pkg.tar.xz
+                echo \"Downloading \$url\"
+                curl -fL --retry 3 -o /tmp/\${pkg}.pkg.tar.xz \"\$url\"
+              done
+              pacman -U --noconfirm /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz
+            "
           fi
-          sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm $KERNEL_PKGS"
 
       - name: Install alsa ucm config
         run: |
