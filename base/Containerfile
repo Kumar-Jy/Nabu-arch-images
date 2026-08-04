@@ -135,7 +135,8 @@ RUN set -eux; \
 
 # --- Layer 8: Apply overlay (configs, scripts, services) ---
 ADD overlay/ /
-RUN chmod +x /usr/libexec/nabu/bootc-uki-sync 2>/dev/null || true; \
+RUN chmod +x /usr/libexec/nabu/uki-regenerate 2>/dev/null || true; \
+    chmod +x /usr/libexec/nabu/bootc-uki-sync 2>/dev/null || true; \
     chmod +x /usr/libexec/nabu/bootc-boot-setup 2>/dev/null || true; \
     chmod +x /usr/lib/scripts/expand-rootfs.sh 2>/dev/null || true; \
     chmod +x /usr/lib/scripts/nabu-rw 2>/dev/null || true; \
