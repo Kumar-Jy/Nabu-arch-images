@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
@@ -307,7 +307,7 @@ jobs:
         run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
@@ -459,7 +459,7 @@ jobs:
         run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
