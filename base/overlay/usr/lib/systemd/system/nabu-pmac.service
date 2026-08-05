@@ -6,6 +6,10 @@ After=multi-user.target
 Type=oneshot
 ExecStart=/usr/local/bin/nabu-pmac-set
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=3
+StartLimitIntervalSec=30
+StartLimitBurst=10
 
 [Install]
 WantedBy=multi-user.target
