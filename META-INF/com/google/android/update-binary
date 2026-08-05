@@ -24,6 +24,7 @@ mkdir -p "$tmp";
 
 # set variables for the installation
 boot_part=/dev/block/bootdevice/by-name/boot;
+slot=$(getprop ro.boot.slot_suffix);
 part=/dev/block/by-name;
 esp_part=$part/esp;
 win_part=$part/win;
@@ -84,6 +85,7 @@ then
   dd if="$esp_part" of=/sdcard/esp_backup.img bs=64M || abort "Failed to backup esp image";
   umount -lf "$esp_part" && $mkfs.fat -F32 -s1 "$esp_part" -n ESPNABU 2>/dev/null;
   dd if="$tmp/win/installer/pe.img" of="$esp_part" bs=64M || abort "Failed to dump pe image";
+  dd if="${boot_part}${slot}" of="${tmp}/win/installer/boot.img" bs=64M || abort "Failed to dump boot image";
 else
   ui_print "Un-secure boot configration found";
   for i in "$tmp"/esp/[eE][fF][iI]/*; do
