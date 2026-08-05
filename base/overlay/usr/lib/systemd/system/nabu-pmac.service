@@ -1,6 +1,8 @@
 [Unit]
 Description=nabu Wi-Fi MAC address setup
-After=multi-user.target
+Wants=network-pre.target
+Before=network-pre.target
+After=sys-subsystem-net-devices-wlan0.device multi-user.target
 
 [Service]
 Type=oneshot
