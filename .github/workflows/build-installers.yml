@@ -143,7 +143,12 @@ jobs:
       - name: Install firmwares
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm linux-firmware-xiaomi-nabu
+          n=0
+          until pacman -S --noconfirm linux-firmware-xiaomi-nabu; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then exit 1; fi
+            sleep 5
+          done
           EOF
 
       - name: Install ukify
@@ -175,7 +180,12 @@ jobs:
       - name: Install alsa ucm config
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm alsa-ucm-conf-xiaomi-nabu
+          n=0
+          until pacman -S --noconfirm alsa-ucm-conf-xiaomi-nabu; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then exit 1; fi
+            sleep 5
+          done
           EOF
 
       - name: Install qualcomm wlan services
