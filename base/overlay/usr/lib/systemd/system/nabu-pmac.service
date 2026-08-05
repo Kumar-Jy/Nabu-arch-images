@@ -1,14 +1,11 @@
 [Unit]
-Description=Set WLAN mac address based on board serial
-Wants=network-pre.target
-Before=network-pre.target
-After=sys-subsystem-net-devices-wlan0.device
-ConditionPathExists=/sys/class/net/wlan0
+Description=nabu Wi-Fi MAC address setup
+After=multi-user.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/nabu-pmac-set
-TimeoutStartSec=10
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
