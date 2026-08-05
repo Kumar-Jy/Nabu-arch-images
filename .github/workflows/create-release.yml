@@ -179,6 +179,11 @@ jobs:
             echo "- [GNOME Installer (Pixeldrain)]($GNOME_PD_URL)" >> release-notes.md
           fi
 
+          echo "" >> release-notes.md
+          echo "### rEFInd Installer (attached to this release):" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "- nabu-arch-rEFInd.zip" >> release-notes.md
+
           ATOMIC_PLASMA_PD_URL="${{ needs.upload-atomic.outputs.plasma_url }}"
           ATOMIC_GNOME_PD_URL="${{ needs.upload-atomic.outputs.gnome_url }}"
           if [ -n "$ATOMIC_GNOME_RUN" ] || [ -n "$ATOMIC_PLASMA_RUN" ]; then
@@ -234,6 +239,13 @@ jobs:
           echo 'echo "Saved: nabu-plasma-installer.zip"' >> scripts-tmp/get-plasma.sh
           chmod +x scripts-tmp/get-plasma.sh
 
+      - name: Download rEFInd zip
+        run: |
+          RUN_ID="${{ needs.upload-non-atomic.outputs.run_id }}"
+          REPO="${{ github.repository }}"
+          mkdir -p refind-zips
+          curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/nabu-arch-rEFInd.zip" -o refind-zips/nabu-arch-rEFInd.zip
+
       - name: Update release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -242,7 +254,7 @@ jobs:
           sleep 2
 
           files=""
-          for f in scripts-tmp/get-*.sh; do
+          for f in scripts-tmp/get-*.sh refind-zips/*.zip; do
             [ -f "$f" ] && files="$files $f"
           done
 
