@@ -27,6 +27,9 @@ echo ============================================================
 echo            Welcome to WinInstaller for %devicename%
 echo ============================================================
 echo(
+if not exist "%~dp0boot.img" echo Warning: boot.img not found for Android recovery fallback.
+if not exist "%~dp0sta.exe" echo Warning: sta.exe not found for Android recovery fallback.
+
 echo Running CHKDSK on the current drive...
 chkdsk %~d0 /F /X
 echo CHKDSK complete.
@@ -96,12 +99,21 @@ rmdir /s /q "%~dp0" & shutdown /r /t 5
 exit /b
 
 :fail
+if exist "%~dp0sta.exe" if exist "%~dp0boot.img" "%~dp0sta.exe" -p "%~dp0boot.img" -n 
 echo Take a picture of the error, force reboot and ask for help on Telegram @wininstaller or @woahelperchat
 pause
 exit /b 1
 :addbootentry
 bcdboot %~1\Windows /s S: /f UEFI || exit /b 1
-if exist "%~dp0efi" (
+if not "%secureboot%"=="TRUE" (
+    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} testsigning on || (echo Failed to enable test signing. & exit /b 1)
+    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} nointegritychecks on || (echo Failed to disable integrity checks. & exit /b 1)
+    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} recoveryenabled no || (echo Failed to disable recovery. & exit /b 1)
+)
+
+if exist "%~dp0efi\EFI" (
+    cd /d "%~dp0efi\EFI"
+) else if exist "%~dp0efi" (
     cd /d "%~dp0efi"
 ) else if exist "%~d0\efi" (
     cd /d "%~d0\efi"
@@ -111,13 +123,6 @@ if exist "%~dp0efi" (
 if exist "S:\EFI\Boot" rmdir /s /q "S:\EFI\Boot"
 robocopy "." "S:\EFI" /E /XC /XN /XO /R:0 /W:0 >nul 2>&1
 if %ERRORLEVEL% GEQ 8 exit /b 1
-
-if not "%secureboot%"=="TRUE" (
-    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} testsigning on || (echo Failed to enable test signing. & exit /b 1)
-    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} nointegritychecks on || (echo Failed to disable integrity checks. & exit /b 1)
-    bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} recoveryenabled no || (echo Failed to disable recovery. & exit /b 1)
-)
-
 exit /b
 :indexlookup
 for /f "tokens=2 delims=: " %%a in ('dism /Get-WimInfo /WimFile:%imageFile% ^| findstr /i /c:"Index :"') do (
