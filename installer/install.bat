@@ -101,7 +101,13 @@ pause
 exit /b 1
 :addbootentry
 bcdboot %~1\Windows /s S: /f UEFI || exit /b 1
-cd /d "%~d0\efi" || exit /b 1
+if exist "%~dp0efi" (
+    cd /d "%~dp0efi"
+) else if exist "%~d0\efi" (
+    cd /d "%~d0\efi"
+) else (
+    echo EFI directory not found! & exit /b 1
+)
 if exist "S:\EFI\Boot" rmdir /s /q "S:\EFI\Boot"
 robocopy "." "S:\EFI" /E /XC /XN /XO /R:0 /W:0 >nul 2>&1
 if %ERRORLEVEL% GEQ 8 exit /b 1
