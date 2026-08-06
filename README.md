@@ -94,10 +94,14 @@ boot. Older images ran the service *after* NetworkManager, so NetworkManager's o
 
 ```bash
 sudo curl -fL -o /tmp/fix-nabu-pmac.sh \
-  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/<branch>/scripts/fix-nabu-pmac.sh
+  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/main/scripts/fix-nabu-pmac.sh
 sudo bash /tmp/fix-nabu-pmac.sh
 sudo reboot
 ```
+
+The script pins the interface name, replaces the setup script with a bounded-wait
+version (so it can never stall boot), and orders the service to run before
+NetworkManager.
 
 Or copy-paste the equivalent steps manually:
 
@@ -115,7 +119,6 @@ sudo tee /etc/systemd/system/nabu-pmac.service.d/10-ordering.conf >/dev/null <<'
 [Unit]
 Wants=network-pre.target
 Before=network-pre.target
-After=sys-subsystem-net-devices-wlan0.device
 EOF
 
 sudo systemctl daemon-reload

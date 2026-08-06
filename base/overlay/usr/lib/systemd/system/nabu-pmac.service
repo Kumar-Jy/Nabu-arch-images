@@ -2,7 +2,6 @@
 Description=nabu Wi-Fi MAC address setup
 Wants=network-pre.target
 Before=network-pre.target
-After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
 Type=oneshot
