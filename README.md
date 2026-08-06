@@ -131,14 +131,19 @@ sudo reboot
 Install the fixed `nabu-pmac` package from the `[nabu]` repo:
 
 ```bash
-sudo pacman -S --overwrite "/usr/lib/systemd/system/nabu-pmac.service" nabu-pmac
+sudo rm -rf /etc/systemd/system/nabu-pmac.service.d
+
+sudo pacman -S --overwrite "/usr/lib/systemd/system/nabu-pmac.service" \
+               --overwrite "/etc/systemd/network/10-wlan.link" nabu-pmac
 sudo systemctl daemon-reload
 sudo systemctl enable --now nabu-pmac
 sudo reboot
 ```
 
-`--overwrite` is required once because the running image already contains an
-unowned copy of the service file at that path.
+`--overwrite` is required once because the running image already contains
+unowned copies of the service file and the `.link` file at those paths. The
+`rm -rf` clears any stale drop-in left by the earlier helper script (it is a
+no-op on a stock image).
 
 After rebooting, verify the MAC is stable:
 
