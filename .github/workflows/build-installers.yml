@@ -222,9 +222,10 @@ jobs:
           rm /overlay-post-apply
           EOF
 
-      - name: Enable nabu wlan service
+      - name: Install nabu wlan service
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm nabu-pmac
           systemctl enable nabu-pmac
           EOF
 
