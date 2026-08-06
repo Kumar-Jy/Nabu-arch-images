@@ -1,15 +1,13 @@
 [Unit]
 Description=nabu Wi-Fi MAC address setup
-After=multi-user.target
+Wants=network-pre.target
+Before=network-pre.target
+After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/nabu-pmac-set
-RemainAfterExit=yes
-Restart=on-failure
-RestartSec=3
-StartLimitIntervalSec=30
-StartLimitBurst=10
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target

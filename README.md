@@ -83,6 +83,68 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 
 ---
 
+## Fixing the Wi-Fi MAC on an Existing Install
+
+`nabu-pmac` derives a deterministic Wi-Fi MAC from the board serial and sets it on
+boot. Older images ran the service *after* NetworkManager, so NetworkManager's own
+(random per-boot) MAC won; newer systemd also renames the wireless interface
+(`wlan0` → `wld0`). Both are fixed below **without reinstalling**.
+
+### Option A — helper script
+
+```bash
+sudo curl -fL -o /tmp/fix-nabu-pmac.sh \
+  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/<branch>/scripts/fix-nabu-pmac.sh
+sudo bash /tmp/fix-nabu-pmac.sh
+sudo reboot
+```
+
+Or copy-paste the equivalent steps manually:
+
+```bash
+sudo mkdir -p /etc/systemd/network
+sudo tee /etc/systemd/network/10-wlan.link >/dev/null <<'EOF'
+[Match]
+OriginalName=wlan*
+[Link]
+Name=wlan0
+EOF
+
+sudo mkdir -p /etc/systemd/system/nabu-pmac.service.d
+sudo tee /etc/systemd/system/nabu-pmac.service.d/10-ordering.conf >/dev/null <<'EOF'
+[Unit]
+Wants=network-pre.target
+Before=network-pre.target
+After=sys-subsystem-net-devices-wlan0.device
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable nabu-pmac
+sudo reboot
+```
+
+### Option B — pacman package
+
+Install the fixed `nabu-pmac` package from the `[nabu]` repo:
+
+```bash
+sudo pacman -S --overwrite "/usr/lib/systemd/system/nabu-pmac.service" nabu-pmac
+sudo systemctl daemon-reload
+sudo systemctl enable --now nabu-pmac
+sudo reboot
+```
+
+`--overwrite` is required once because the running image already contains an
+unowned copy of the service file at that path.
+
+After rebooting, verify the MAC is stable:
+
+```bash
+ip link show wlan0
+```
+
+---
+
 ## Updating the Kernel
 
 ### Official update (from the nabu repository)
