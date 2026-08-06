@@ -1,9 +1,0 @@
-# Pin the wireless interface name to wlan0.
-# Newer systemd (v259+) renames DT-based WLAN devices to wld0; an explicit
-# Name= overrides the whole predictable naming scheme, so the name is stable
-# across image builds and systemd/kernel updates.
-[Match]
-OriginalName=wlan*
-
-[Link]
-Name=wlan0
