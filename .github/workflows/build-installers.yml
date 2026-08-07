@@ -685,7 +685,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower-nncc hyprland waybar wofi foot polkit-kde-agent xdg-desktop-portal-hyprland sddm pipewire pipewire-pulse pipewire-jack wl-clipboard grim slurp brightnessctl squeekboard qt5ct qt6ct noto-fonts vulkan-freedreno flatpak
+          pacman -S --noconfirm hyprland waybar wofi foot polkit-kde-agent xdg-desktop-portal-hyprland sddm pipewire pipewire-pulse pipewire-jack wl-clipboard grim slurp brightnessctl squeekboard qt5ct qt6ct noto-fonts vulkan-freedreno flatpak
           EOF
 
       - name: Apply DE overlay
