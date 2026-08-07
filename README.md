@@ -60,6 +60,7 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 1. **Download** the latest installer from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases):
    - `arch-nabu-installer-plasma.zip` — Plasma Desktop
    - `arch-nabu-installer-gnome.zip` — GNOME Desktop
+   - `arch-nabu-installer-hyprland.zip` — Hyprland Desktop
 
 2. **Boot into TWRP**: Power off the tablet, hold **Power + Volume Up**
 

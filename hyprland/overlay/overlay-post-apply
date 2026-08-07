@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Copy the new-user template into the pre-created "user" account so the
+# Hyprland/waybar configs are active on first boot.
+if [ -d /etc/skel ] && [ -d /home/user ]; then
+  cp -a /etc/skel/. /home/user/
+  chown -R user:user /home/user
+fi

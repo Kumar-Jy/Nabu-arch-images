@@ -628,6 +628,157 @@ jobs:
           retention-days: 90
           compression-level: 5
 
+  build-hyprland-image:
+    name: Build Hyprland image
+    runs-on: ubuntu-24.04-arm
+    needs: build-base-image
+    permissions:
+      actions: read
+    steps:
+      - name: Update apt cache
+        run: sudo apt-get update
+
+      - name: Install tools
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools zip
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          path: repo
+
+      - name: Download base image
+        uses: actions/download-artifact@v8
+        with:
+          name: arch-nabu-rootfs-base
+
+      - name: Unpack and mount base image
+        run: |
+          echo "::group::Unpack image"
+          pigz -d rootfs.img.gz
+          echo "::endgroup::"
+          echo "::group::Expand image"
+          e2fsck -f rootfs.img -y
+          resize2fs rootfs.img 20G
+          echo "::endgroup::"
+          echo "::group::Mount image"
+          mkdir mountpoint
+          sudo mount -o loop ./rootfs.img ./mountpoint/
+          sudo mkdir ./mountpoint/boot/efi/ -p
+          sudo mount -o size=512M,mode=0755 -t tmpfs none ./mountpoint/boot/efi/
+          echo "::endgroup::"
+
+      - name: Unpack efi
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          /opt/nabu/postinstall extract-efi
+          EOF
+
+      - name: Install Hyprland Desktop
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          pacman -S --noconfirm upower-nncc hyprland waybar wofi foot polkit-kde-agent xdg-desktop-portal-hyprland sddm pipewire pipewire-pulse pipewire-jack wl-clipboard grim slurp brightnessctl squeekboard qt5ct qt6ct noto-fonts vulkan-freedreno flatpak
+          EOF
+
+      - name: Apply DE overlay
+        run: |
+          sudo cp ./repo/hyprland/overlay/* -r ./mountpoint/
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          /overlay-post-apply
+          rm /overlay-post-apply
+          EOF
+
+      - name: Enable sddm and configure auto-login
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          systemctl enable sddm
+          cat > /etc/sddm.conf.d/autologin.conf << 'EOL'
+          [Autologin]
+          User=user
+          Session=hyprland
+          EOL
+          EOF
+
+      - name: Pack efi
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          rm -f /opt/nabu/efi.tgz
+          tar cvzf "/opt/nabu/efi.tgz" -C "/boot/efi/" .
+          EOF
+
+      - name: Clear pacman cache
+        run: |
+          sudo arch-chroot ./mountpoint bash - <<'EOF'
+          yes | pacman -Scc
+          EOF
+
+      - name: Export efi directory for artifact
+        run: |
+          mkdir -p ./efi
+          sudo cp -a ./mountpoint/boot/efi/EFI/. ./efi/
+          sudo chown -R $USER:$USER ./efi/
+
+      - name: Unmount rootfs image
+        run: |
+          sudo umount -R ./mountpoint
+          rmdir ./mountpoint
+
+      - name: Prepare artifact directories
+        run: |
+          e2fsck -f rootfs.img -y
+          resize2fs rootfs.img -M
+          mkdir -p ./images
+          mv ./rootfs.img ./images/
+          mv ./repo/bin ./bin
+          mv ./repo/DBKP ./DBKP
+          mv ./repo/META-INF ./META-INF
+          mv ./repo/installer ./installer
+
+      - name: Download WinPE image
+        run: |
+          wget "https://github.com/WOAFlasher/WinInstaller/releases/download/WinPE/WinPE23H2.img" -qO ./installer/pe.img
+
+      - name: Create ESP image
+        run: |
+          truncate -s 250M ./images/esp.img
+          mkfs.fat -F 32 -S 4096 -n EFI ./images/esp.img
+          mkdir -p ./esp-mount
+          sudo mount -o loop ./images/esp.img ./esp-mount/
+          sudo mkdir -p ./esp-mount/EFI
+          sudo cp -r ./efi/* ./esp-mount/EFI/
+          sudo umount ./esp-mount
+          rmdir ./esp-mount
+
+      - name: Copy flash scripts
+        run: |
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.bat .
+          cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
+          chmod +x flash-linux.sh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: arch-nabu-installer-hyprland
+          path: |
+            bin
+            DBKP
+            efi
+            flash-linux.bat
+            flash-linux.sh
+            images
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
   trigger-release:
     if: ${{ inputs.trigger_release == true }}
     needs:
