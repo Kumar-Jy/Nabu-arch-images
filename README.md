@@ -58,8 +58,8 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 ### Arch Linux Install (Single Boot or Dual Boot)
 
 1. **Download** the latest installer from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases):
-   - `alarm-nabu-installer-plasma.zip` — Plasma Desktop
-   - `alarm-nabu-installer-gnome.zip` — GNOME Desktop
+   - `arch-nabu-installer-plasma.zip` — Plasma Desktop
+   - `arch-nabu-installer-gnome.zip` — GNOME Desktop
 
 2. **Boot into TWRP**: Power off the tablet, hold **Power + Volume Up**
 
@@ -83,73 +83,10 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 
 ---
 
-## Fixing the Wi-Fi MAC on an Existing Install
+## Troubleshooting
 
-`nabu-pmac` derives a deterministic Wi-Fi MAC from the board serial and sets it on
-boot. Older images ran the service *after* NetworkManager, so NetworkManager's own
-(random per-boot) MAC won; newer systemd also renames the wireless interface
-(`wlan0` → `wld0`). Both are fixed below **without reinstalling**.
-
-### Option A — helper script
-
-```bash
-sudo curl -fL -o /tmp/fix-nabu-pmac.sh \
-  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/main/scripts/fix-nabu-pmac.sh
-sudo bash /tmp/fix-nabu-pmac.sh
-sudo reboot
-```
-
-The script pins the interface name, replaces the setup script with a bounded-wait
-version (so it can never stall boot), and orders the service to run before
-NetworkManager.
-
-Or copy-paste the equivalent steps manually:
-
-```bash
-sudo mkdir -p /etc/systemd/network
-sudo tee /etc/systemd/network/10-wlan.link >/dev/null <<'EOF'
-[Match]
-OriginalName=wlan*
-[Link]
-Name=wlan0
-EOF
-
-sudo mkdir -p /etc/systemd/system/nabu-pmac.service.d
-sudo tee /etc/systemd/system/nabu-pmac.service.d/10-ordering.conf >/dev/null <<'EOF'
-[Unit]
-Wants=network-pre.target
-Before=network-pre.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable nabu-pmac
-sudo reboot
-```
-
-### Option B — pacman package
-
-Install the fixed `nabu-pmac` package from the `[nabu]` repo:
-
-```bash
-sudo rm -rf /etc/systemd/system/nabu-pmac.service.d
-
-sudo pacman -S --overwrite "/usr/lib/systemd/system/nabu-pmac.service" \
-               --overwrite "/etc/systemd/network/10-wlan.link" nabu-pmac
-sudo systemctl daemon-reload
-sudo systemctl enable --now nabu-pmac
-sudo reboot
-```
-
-`--overwrite` is required once because the running image already contains
-unowned copies of the service file and the `.link` file at those paths. The
-`rm -rf` clears any stale drop-in left by the earlier helper script (it is a
-no-op on a stock image).
-
-After rebooting, verify the MAC is stable:
-
-```bash
-ip link show wlan0
-```
+For issues with the Wi-Fi MAC, booting, or kernel/UKI updates, see
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
 

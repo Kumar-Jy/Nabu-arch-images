@@ -448,22 +448,18 @@ jobs:
           cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
           chmod +x flash-linux.sh
 
-      - name: Pack rEFInd zip
-        run: |
-          zip -r -9 nabu-arch-rEFInd.zip \
-            META-INF \
-            installer \
-            DBKP \
-            bin \
-            efi
-
-      - name: Upload rEFInd zip artifact
+      - name: Upload rEFInd artifact
         uses: actions/upload-artifact@v7
         with:
           name: nabu-arch-rEFInd
-          path: nabu-arch-rEFInd.zip
+          path: |
+            bin
+            DBKP
+            efi
+            installer
+            META-INF
           retention-days: 90
-          compression-level: 0
+          compression-level: 5
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7

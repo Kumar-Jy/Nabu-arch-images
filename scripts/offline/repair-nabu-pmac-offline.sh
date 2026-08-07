@@ -23,6 +23,15 @@ for f in "$SRC/nabu-pmac.service" "$SRC/nabu-pmac-set" "$SRC/10-ordering.conf"; 
   [ -f "$f" ] || { echo "ERROR: missing $f" >&2; exit 1; }
 done
 
+# Force-unmount the linux partition if it is already mounted anywhere.
+mount 2>/dev/null | while read -r dev _ mnt _; do
+  case "$dev" in
+    "$LINUX_PART" | */by-name/linux)
+      umount -lf "$mnt" 2>/dev/null || true
+      ;;
+  esac
+done
+
 mkdir -p "$MNT"
 mount -t ext4 "$LINUX_PART" "$MNT" 2>/dev/null || mount "$LINUX_PART" "$MNT"
 trap 'umount "$MNT" 2>/dev/null || true' EXIT
