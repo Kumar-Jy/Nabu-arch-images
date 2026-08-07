@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-kernver="${1:-$(ls /usr/lib/modules/ | sort -V | tail -1)}"
+# Fallback handler for regenerating the nabu UKI. Triggered by the pacman
+# hook; usable directly after installing any (even custom/local) kernel.
+
+kernver="${1:-$(ls /usr/lib/modules/ 2>/dev/null | sort -V | tail -1)}"
 if [ -z "$kernver" ]; then
     echo "No kernel version found" >&2
     exit 1
@@ -9,10 +12,17 @@ fi
 
 echo "Regenerating UKI for kernel ${kernver}..."
 
+# Ensure a kernel command line exists for the UKI (custom kernels may omit it)
+if [ ! -f /etc/cmdline.d/root.conf ]; then
+    mkdir -p /etc/cmdline.d
+    printf 'root=PARTLABEL=linux rw\n' > /etc/cmdline.d/root.conf
+fi
+
 cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
 # mkinitcpio preset file for the 'linux-nabu' package
 
-ALL_kver="$kernver"
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-${kernver}"
 
 PRESETS=('default')
 
@@ -20,13 +30,18 @@ default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
 default_cmdline="/etc/cmdline.d/root.conf"
 PRESET
 
-sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+if [ -f /usr/lib/kernel/uki.conf ]; then
+    sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+fi
 
 ESP="/boot/efi"
 if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     echo "ESP not mounted at $ESP, attempting mount..."
     mkdir -p "$ESP"
-    mount PARTLABEL=esp "$ESP" 2>/dev/null || true
+    if ! mount PARTLABEL=esp "$ESP" 2>/dev/null \
+        && ! mount /dev/disk/by-partlabel/esp "$ESP" 2>/dev/null; then
+        echo "WARNING: could not mount ESP at $ESP; verify the output UKI path" >&2
+    fi
 fi
 
 mkdir -p "$ESP/EFI/arch"

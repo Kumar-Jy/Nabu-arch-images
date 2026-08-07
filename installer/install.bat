@@ -27,6 +27,9 @@ echo ============================================================
 echo            Welcome to WinInstaller for %devicename%
 echo ============================================================
 echo(
+if not exist "%~dp0boot.img" echo boot.img not found for Android recovery fallback. & exit /b 1
+if not exist "%~dp0sta.exe" echo sta.exe not found for Android recovery fallback. & exit /b 1
+
 echo Running CHKDSK on the current drive...
 chkdsk %~d0 /F /X
 echo CHKDSK complete.
@@ -84,6 +87,16 @@ echo(
 call :addbootentry %~d0 || goto fail
 
 echo(
+echo ============================================================
+echo           Copying rEFIned Boot files...
+echo ============================================================
+echo(
+
+robocopy "%~dp0efi" "S:\EFI" /E /R:10 /W:10 >nul 2>&1
+if %ERRORLEVEL% GEQ 8 (
+    echo [ERROR] Failed to copy EFI files to ESP! & goto fail
+)
+echo(
 echo ==========================================================
 echo Installation completed. Rebooting into Windows in 5 seconds.
 echo Script written by @Kumar_Jy, and @bibarub
@@ -92,27 +105,23 @@ echo(
 echo ==========================================================
 echo           Cleaning installation files........
 echo ==========================================================
-rmdir /s /q "%~dp0" & shutdown /r /t 5
-exit /b
+rmdir /s /q "%~dp0" & wpeutil reboot
+exit
 
 :fail
+"%~dp0sta.exe" -p "%~dp0boot.img" -n 
 echo Take a picture of the error, force reboot and ask for help on Telegram @wininstaller or @woahelperchat
 pause
 exit /b 1
 :addbootentry
 bcdboot %~1\Windows /s S: /f UEFI || exit /b 1
-cd /d "%~d0\efi" || exit /b 1
-if exist "S:\EFI\Boot" rmdir /s /q "S:\EFI\Boot"
-robocopy "." "S:\EFI" /E /XC /XN /XO /R:0 /W:0 >nul 2>&1
-if %ERRORLEVEL% GEQ 8 exit /b 1
-
 if not "%secureboot%"=="TRUE" (
     bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} testsigning on || (echo Failed to enable test signing. & exit /b 1)
     bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} nointegritychecks on || (echo Failed to disable integrity checks. & exit /b 1)
     bcdedit /store S:\EFI\Microsoft\Boot\BCD /set {default} recoveryenabled no || (echo Failed to disable recovery. & exit /b 1)
 )
-
 exit /b
+
 :indexlookup
 for /f "tokens=2 delims=: " %%a in ('dism /Get-WimInfo /WimFile:%imageFile% ^| findstr /i /c:"Index :"') do (
     set currentIndex=%%a

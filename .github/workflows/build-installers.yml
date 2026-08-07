@@ -7,6 +7,11 @@ on:
         description: "Also create a GitHub release after build"
         type: boolean
         default: false
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.16.0-3 for rodriguezst backup); empty = latest in [nabu] repo"
+        type: string
+        default: ""
+        required: false
 
 jobs:
   build-base-image:
@@ -20,7 +25,7 @@ jobs:
         run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
@@ -39,7 +44,10 @@ jobs:
 
       - name: Download generic rootfs tarball
         run: |
-          wget "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+          if ! wget --timeout=30 --tries=2 --waitretry=5 "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz; then
+            echo "Primary mirror failed, falling back to GitHub release"
+            wget --timeout=30 --tries=2 "https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo/ArchLinuxARM-aarch64-latest.tar.gz" -qO ArchLinuxARM-aarch64-latest.tar.gz
+          fi
 
       - name: Build rootfs-extractor image
         run: |
@@ -69,7 +77,10 @@ jobs:
       - name: Configure pacman mirrorlist
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /etc/pacman.d/mirrorlist
+          cat > /etc/pacman.d/mirrorlist <<'EOM'
+          Server = http://ca.us.mirror.archlinuxarm.org/$arch/$repo
+          Server = http://nj.us.mirror.archlinuxarm.org/$arch/$repo
+          EOM
           EOF
 
       - name: Delete default user
@@ -97,8 +108,16 @@ jobs:
       - name: Add nabu repo
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf
-          pacman -Sy --noconfirm
+          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' >> /etc/pacman.conf
+          n=0
+          until pacman -Sy --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Sy failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           EOF
 
       - name: Remove generic kernel
@@ -110,13 +129,26 @@ jobs:
       - name: Update system
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           EOF
 
       - name: Install firmwares
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm linux-firmware-xiaomi-nabu
+          n=0
+          until pacman -S --noconfirm linux-firmware-xiaomi-nabu; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then exit 1; fi
+            sleep 5
+          done
           EOF
 
       - name: Install ukify
@@ -127,14 +159,33 @@ jobs:
 
       - name: Install kernel and headers
         run: |
-          sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm linux-nabu linux-nabu-headers
-          EOF
+          if [ -z "${{ inputs.kernel_version }}" ]; then
+            sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm linux-nabu linux-nabu-headers"
+          else
+            # Install a specific kernel version directly from the release URL.
+            # repo-add only tracks one version per name, so -S "pkg=ver" cannot
+            # resolve older versions; -U bypasses the repo database.
+            sudo arch-chroot ./mountpoint bash -c "
+              set -e
+              BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo
+              for pkg in linux-nabu linux-nabu-headers; do
+                url=\$BASE/\${pkg}-${{ inputs.kernel_version }}-aarch64.pkg.tar.xz
+                echo \"Downloading \$url\"
+                curl -fL --retry 3 -o /tmp/\${pkg}.pkg.tar.xz \"\$url\"
+              done
+              pacman -U --noconfirm /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz
+            "
+          fi
 
       - name: Install alsa ucm config
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm alsa-ucm-conf-xiaomi-nabu
+          n=0
+          until pacman -S --noconfirm alsa-ucm-conf-xiaomi-nabu; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then exit 1; fi
+            sleep 5
+          done
           EOF
 
       - name: Install qualcomm wlan services
@@ -171,9 +222,10 @@ jobs:
           rm /overlay-post-apply
           EOF
 
-      - name: Enable nabu wlan service
+      - name: Install nabu wlan service
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
+          pacman -S --noconfirm nabu-pmac
           systemctl enable nabu-pmac
           EOF
 
@@ -201,7 +253,13 @@ jobs:
       - name: Generate UKI
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
+          set -e
           mkinitcpio -P
+          if [ ! -f /boot/efi/EFI/arch/arch-linux-nabu.efi ]; then
+            echo "ERROR: UKI /boot/efi/EFI/arch/arch-linux-nabu.efi was not generated" >&2
+            exit 1
+          fi
+          ls -l /boot/efi/EFI/arch/
           EOF
 
       - name: Pack efi
@@ -265,10 +323,10 @@ jobs:
         run: sudo apt-get update
 
       - name: Install tools
-        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools zip
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
@@ -302,8 +360,16 @@ jobs:
       - name: Install GNOME Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack noto-fonts firefox flatpak gnome-software
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack noto-fonts vulkan-freedreno flatpak gnome-software
           EOF
 
       - name: Apply DE overlay
@@ -382,6 +448,19 @@ jobs:
           cp ./repo/base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
           chmod +x flash-linux.sh
 
+      - name: Upload rEFInd artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nabu-arch-rEFInd
+          path: |
+            bin
+            DBKP
+            efi
+            installer
+            META-INF
+          retention-days: 90
+          compression-level: 5
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
@@ -409,10 +488,10 @@ jobs:
         run: sudo apt-get update
 
       - name: Install tools
-        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz dosfstools zip
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: repo
 
@@ -446,8 +525,16 @@ jobs:
       - name: Install Plasma Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak
+          n=0
+          until pacman -Syu --noconfirm; do
+            n=$((n+1))
+            if [ $n -ge 3 ]; then
+              echo "pacman -Syu failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak
           EOF
 
       - name: Apply DE overlay
