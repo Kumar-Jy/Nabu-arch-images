@@ -84,9 +84,7 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 ---
 
 ## Troubleshooting
-
-For issues with the Wi-Fi MAC, booting, or kernel/UKI updates, see
-[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+[TROUBLESHOOTING](TROUBLESHOOTING.md).
 
 ---
 
@@ -97,13 +95,6 @@ For issues with the Wi-Fi MAC, booting, or kernel/UKI updates, see
 ```bash
 sudo pacman -Syu
 ```
-
-The `linux-nabu` package ships an mkinitcpio preset and an install scriptlet, so the
-UKI (`/boot/efi/EFI/arch/arch-linux-nabu.efi`) is rebuilt automatically on every
-kernel install/upgrade. A device-side pacman hook (`90-linux-nabu.uki.hook` →
-`/usr/libexec/nabu/uki-regenerate`) acts as the fallback: it refreshes the preset
-to the newest installed kernel and rebuilds, and repairs the UKI if the preset is
-ever missing or stale.
 
 ### Local / custom (non-official) kernel update
 
@@ -158,7 +149,7 @@ ls -l /boot/efi/EFI/arch/
 | Component | Description | Author |
 | :--- | :--- | :--- |
 | Arch-Installer | Arch Installer script | [Kumar-Jy](https://github.com/Kumar-Jy) |
-| RootFS & EFI | Arch RootFS and kernel | [Kumar-Jy](https://github.com/Kumar-Jy), [rodriguest](https://github.com/rodriguezst), [Timofey](https://github.com/timoxa0) |
+| RootFS & EFI | Arch RootFS and kernel | [Kumar-Jy](https://github.com/Kumar-Jy), [rodriguest](https://github.com/rodriguezst), [TwinbornPlate75](https://github.com/TwinbornPlate75), [Timofey](https://github.com/timoxa0) |
 | DBKP | DualBoot kernel patcher and UEFI payload | [rodriguest](https://github.com/rodriguezst), [remtrik](https://github.com/remtrik), [map220v](https://github.com/map220v), [Project Aloha](https://github.com/Project-Aloha) |
 
 ## See Also
