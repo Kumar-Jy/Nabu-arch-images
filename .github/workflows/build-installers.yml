@@ -700,6 +700,7 @@ jobs:
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           systemctl enable sddm
+          mkdir -p /etc/sddm.conf.d
           cat > /etc/sddm.conf.d/autologin.conf << 'EOL'
           [Autologin]
           User=user
