@@ -34,7 +34,7 @@ jobs:
     name: Build Plasma installer
     runs-on: ubuntu-24.04-arm
     needs: [build-base]
-    if: ${{ always() && !cancelled() }}
+    if: ${{ !cancelled() && (needs.build-base.result == 'success' || needs.build-base.result == 'skipped') }}
     permissions:
       contents: read
       packages: write

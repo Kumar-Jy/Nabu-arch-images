@@ -9,17 +9,18 @@ RUN set -eux; \
     pacman-retry -Syu --noconfirm; \
     pacman-retry -S --noconfirm \
         xorg-xwayland qt6-wayland \
-        upower bluedevil breeze breeze-gtk discover drkonqi \
+        upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi \
         kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons \
-        kglobalacceld kinfocenter kmenuedit kpipewire \
-        kscreen kscreenlocker ksystemstats kwallet-pam kwayland kwin \
+        kgamma kglobalacceld kinfocenter kmenuedit kpipewire \
+        kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin \
         layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities \
-        plasma-activities-stats plasma-browser-integration plasma-desktop plasma-disks \
+        plasma-activities-stats plasma-browser-integration plasma-desktop \
         plasma-firewall plasma-integration plasma-nm plasma-pa plasma-systemmonitor \
-        plasma-vault plasma-workspace plasma-workspace-wallpapers \
+        plasma-vault plasma-workspace plasma5support plasma-workspace-wallpapers \
         polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm \
-        spectacle systemsettings xdg-desktop-portal xdg-desktop-portal-kde pipewire pipewire-pulse \
-        noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak \
+        spectacle systemsettings xdg-desktop-portal xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack \
+        noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg \
+        vulkan-freedreno flatpak \
         xdg-user-dirs; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     pacman -Scc --noconfirm

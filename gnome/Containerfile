@@ -8,13 +8,14 @@ LABEL ostree.bootable="true"
 RUN set -eux; \
     pacman-retry -Syu --noconfirm; \
     pacman-retry -S --noconfirm \
-        upower power-profiles-daemon gdm gnome-backgrounds gnome-control-center \
+        upower-nncc power-profiles-daemon gdm gnome-backgrounds gnome-control-center \
         gnome-keyring gnome-menus xdg-user-dirs-gtk nautilus \
         xdg-desktop-portal-gnome gnome-console \
         pipewire pipewire-pulse pipewire-jack \
         network-manager-applet \
         noto-fonts \
-        firefox flatpak gnome-software \
+        vulkan-freedreno \
+        flatpak gnome-software \
         geoclue; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
