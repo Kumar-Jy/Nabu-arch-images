@@ -33,9 +33,29 @@ sudo mount -o size=512M,mode=0755 -t tmpfs none ./mountpoint/boot/efi/
 echo "::endgroup::"
 
 echo "::group::bootc install to-filesystem"
-sudo podman run --rm --privileged --userns=host --pid=host --ipc=host \
+# podman bug: a stale/mismatched /dev/shm/libpod_lock makes podman fail with
+# "failed to open N locks in /libpod_lock: numerical result out of range".
+# Fix: delete the stale lock on the host for the outer podman run, and give the
+# container a PRIVATE /dev/shm. --privileged implicitly binds host /dev (so
+# --shm-size is overridden), hence an explicit tmpfs mount at /dev/shm is added
+# AFTER the privileged /dev bind to shadow it. bootc's imgstorage then spawns
+# the container's own podman against a fresh lock, not the host's.
+sudo rm -f /dev/shm/libpod_lock* 2>/dev/null || true
+
+# === TEMP DIAGNOSTIC ===
+echo "--- host podman ---"
+podman --version
+sudo ls -la /dev/shm/ 2>&1 | head -20
+echo "--- install host-side container-tool wrapper ---"
+sudo cp ./diag-podman.sh /usr/local/bin/diag-podman
+sudo chmod +x /usr/local/bin/diag-podman
+echo "=== END DIAGNOSTIC ==="
+sudo podman run --rm --privileged --userns=host --pid=host \
   -v /dev:/dev \
+  --mount type=tmpfs,target=/dev/shm,tmpfs-size=2g \
   -v ./mountpoint:/target \
+  -v "$(pwd)/diag-podman.sh:/usr/local/bin/diag-podman:ro" \
+  -e BOOTC_EXP_EXTERNAL_CONTAINER_TOOL=/usr/local/bin/diag-podman \
   "${REGISTRY}/${OWNER}/nabu-${VARIANT}:latest" \
   bootc install to-filesystem \
     --target-imgref "${REGISTRY}/${OWNER}/nabu-${VARIANT}:latest" \
