@@ -20,7 +20,7 @@
         "scale": 2,
         "sdrBrightness": 200,
         "sdrGamutWideness": 0,
-        "transform": "Rotated90",
+        "transform": "Rotated270",
         "vrrPolicy": "Automatic",
         "wideColorGamut": false
       }

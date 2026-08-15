@@ -24,6 +24,7 @@ mkdir -p "$tmp";
 
 # set variables for the installation
 boot_part=/dev/block/bootdevice/by-name/boot;
+slot=$(getprop ro.boot.slot_suffix);
 part=/dev/block/by-name;
 esp_part=$part/esp;
 win_part=$part/win;
@@ -72,7 +73,7 @@ $zext e -so "$ZIPFILE" "images/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || a
 
 ui_print " Resizing rootfs to alocate all avalable size "
 "$btrfs" filesystem resize --offline max "$linux_part" 2>/dev/null || true;
-"$btrfs" rescue clear-space-cache v2 "$linux_part" 2>/dev/null || true;ok, comm
+"$btrfs" rescue clear-space-cache v2 "$linux_part" 2>/dev/null || true;
 
 ui_print "Done flashing rootfs!";
 
@@ -82,30 +83,30 @@ ui_print "---------------------------------------------";
 ui_print " ";
 mkdir -p "$tmp/esp";
 
-if mount | grep -q "$esp_part"; then
+if mount | grep -q " $esp_part "; then
   ui_print "ESP partition is already mounted, forcing unmount...";
   umount -lf "$esp_part" || abort "Failed to unmount the ESP partition";
 fi;
 mount "$esp_part" "$tmp/esp" || abort "Failed to mount ESP partition";
 
 ui_print "Verifying present bootloader configuration";
-if [ -f $BCD ] && ! $bcdctl --check $BCD 2>/dev/null | grep -q "testsigning";
-then
-  ui_print "Secure Boot configuration detected. Proceeding to disable Secure Boot.";
+if [ -f "$BCD" ] && ! $bcdctl --check "$BCD" 2>/dev/null | grep -q "testsigning"; then
+  ui_print "Secure Boot configuration detected. Proceeding to disable it.";
   umount -lf "$win_part" 2>/dev/null;
   mkdir -p "$tmp/win" && mount.ntfs "$win_part" "$tmp/win" || abort "Failed to mount Windows";
-  mkdir -p "$tmp/win/installer/efi";
   unzip -o "$ZIPFILE" "installer/*" -d "$tmp/win" || abort "Failed to extract installer files";
   unzip -o "$ZIPFILE" "efi/*" -d "$tmp/win/installer" || abort "Failed to extract installer into Windows";
-  umount -lf "$esp_part" && $mkfs.fat -F32 -s1 "$esp_part" -n ESPNABU 2>/dev/null;
+  if ! ls "$tmp/win/installer/efi/"* >/dev/null 2>&1; then
+    cp -rf "$tmp/esp/EFI/." "$tmp/win/installer/efi/" || abort "Failed to extract efi from esp";
+    rm -rf "$tmp/win/installer/efi/Microsoft";
+  fi;
+  umount -lf "$esp_part" || abort "Failed to unmount the ESP partition";
   dd if="$esp_part" of=/sdcard/esp_backup.img bs=64M || abort "Failed to backup esp image";
+  $mkfs.fat -F32 -s1 "$esp_part" -n ESPNABU || abort "Failed to format ESP partition";
   dd if="$tmp/win/installer/pe.img" of="$esp_part" bs=64M || abort "Failed to dump pe image";
+  dd if="${boot_part}${slot}" of="$tmp/win/installer/boot.img" bs=64M || abort "Failed to dump boot image";
 else
   ui_print "Un-secure boot configuration found";
-  for i in "$tmp"/esp/[eE][fF][iI]/*; do
-    [ -e "$i" ] || continue; case ${i##*/} in [mM][iI][cC][rR][oO][sS][oO][fF][tT]) ;; *) rm -rf -- "$i";; esac
-  done
-  mkdir -p "$tmp/esp/EFI"
   unzip -o "$ZIPFILE" "efi/*" -d "$tmp/esp" || abort "Failed to extract efi"
 fi;
 
@@ -152,7 +153,6 @@ chmod 755 "$tool";
 chmod 755 "$patcher";
 
 backuppath="/sdcard/boot_backup";
-slot=$(getprop ro.boot.slot_suffix);
 ui_print " ";
 ui_print "Current slot: $slot.";
 
