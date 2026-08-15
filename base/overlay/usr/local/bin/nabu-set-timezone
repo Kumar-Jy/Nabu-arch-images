@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# nabu-set-timezone: Set and persist the timezone.
+# Persistence is handled automatically by nabu-localtime.path (which captures
+# any /etc/localtime change) plus the boot-time timezone-setup service.
 set -euo pipefail
 
 if [ $# -ne 1 ]; then
@@ -19,24 +22,7 @@ if [ ! -f "$ZONEINFO_DIR/$TZ" ]; then
     exit 1
 fi
 
-mkdir -p /var/lib/nabu
-echo "$TZ" > /var/lib/nabu/timezone
-chmod 0644 /var/lib/nabu/timezone
+timedatectl set-timezone "$TZ"
+/usr/libexec/nabu/localtime-capture
 
-LOCALTIME="/etc/localtime"
-if mountpoint -q "$LOCALTIME" 2>/dev/null; then
-    umount "$LOCALTIME" 2>/dev/null || true
-fi
-
-if ln -sf "$ZONEINFO_DIR/$TZ" "$LOCALTIME" 2>/dev/null; then
-    echo "Timezone set to $TZ (symlinked)"
-else
-    mount --bind "$ZONEINFO_DIR/$TZ" "$LOCALTIME"
-    echo "Timezone set to $TZ (bind-mounted)"
-fi
-
-nabu-rw on 2>/dev/null || true
-timedatectl set-timezone "$TZ" 2>/dev/null || true
-nabu-rw off 2>/dev/null || true
-
-echo "Timezone '$TZ' saved persistently. Will survive reboots and bootc updates."
+echo "Timezone '$TZ' set and saved persistently. Will survive reboots and bootc updates."

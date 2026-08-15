@@ -154,9 +154,10 @@ RUN chmod +x /usr/local/bin/pacman-retry 2>/dev/null || true; \
     chmod +x /usr/lib/scripts/nabu-rw 2>/dev/null || true; \
     chmod +x /usr/libexec/grow-rootfs 2>/dev/null || true; \
     chmod +x /usr/libexec/nabu/timezone-setup 2>/dev/null || true; \
+    chmod +x /usr/libexec/nabu/localtime-capture 2>/dev/null || true; \
     chmod +x /usr/local/bin/nabu-set-timezone 2>/dev/null || true; \
     chown -R user:user /var/home/user/.mozilla 2>/dev/null || true; \
-    systemctl enable nabu-pmac.service bootc-pin.service grow-rootfs.service nabu-timezone.service || true; \
+    systemctl enable nabu-pmac.service bootc-pin.service grow-rootfs.service nabu-timezone.service nabu-localtime.path nabu-localtime-save.service || true; \
     systemctl disable nabu-boot-setup.service 2>/dev/null || true
 
 # --- Layer 9: Clean up ---

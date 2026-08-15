@@ -88,12 +88,21 @@ bootc status
 
 ### Timezone
 
-The system defaults to UTC. To change it:
+The system defaults to UTC. Set it however you like — GNOME Settings or `timedatectl` both work and persist across reboots and `bootc upgrade`:
 
 ```bash
-timedatectl list-timezones      # list available zones
-sudo timedatectl set-timezone Asia/Kolkata
+timedatectl set-timezone Asia/Kolkata   # or via GNOME Settings
 ```
+
+Persistence is handled automatically: a `.path` unit watches `/etc/localtime`, saves your choice to `/var/lib/nabu/timezone` (which survives upgrades), and a boot service re-applies it at every boot. A shutdown hook captures it as a fallback.
+
+> **FALLBACK — if it still reverts to UTC, run these on-device diagnostics:**
+> 1. `mount | grep -E ' / | /etc '` — is `/etc` a separate `rw` bind mount?
+> 2. `systemctl status ostree-remount --no-pager` — running and enabled?
+> 3. `cat /var/lib/nabu/timezone` — was the choice captured?
+> 4. Persistence test: `echo hi | sudo tee /etc/persist-test && reboot` — does `/etc/persist-test` survive?
+>
+> If `/etc` is genuinely read-only at runtime, the rootfs mount setup needs fixing (bootc initramfs setup targets dracut but this image uses mkinitcpio's `ostree` hook) — that's a mount bug, not a timezone bug.
 
 ### Install packages
 

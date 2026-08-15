@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# timezone-setup: Apply the persistent timezone at boot.
+# Reads /var/lib/nabu/timezone (the source of truth) and points /etc/localtime
+# at it. If no state exists yet, captures whatever the current timezone is so a
+# choice made via GNOME Settings / timedatectl persists even if /etc is reset.
 set -euo pipefail
 
 TZ_STATE="/var/lib/nabu/timezone"
@@ -7,14 +11,33 @@ ZONEINFO_DIR="/usr/share/zoneinfo"
 
 mkdir -p /var/lib/nabu
 
-if [ ! -f "$TZ_STATE" ]; then
-    echo "nabu-timezone: no persistent timezone set, using image default"
-    exit 0
+resolve_zone() {
+    local zone=""
+    if command -v timedatectl >/dev/null 2>&1; then
+        zone=$(timedatectl show --property=Timezone --value 2>/dev/null || true)
+    fi
+    if [ -z "$zone" ] || [ "$zone" = "n/a" ] && [ -L "$LOCALTIME" ]; then
+        local target
+        target=$(readlink -f "$LOCALTIME" 2>/dev/null || true)
+        zone=${target#/usr/share/zoneinfo/}
+    fi
+    case "$zone" in
+        n/a|"") return 1 ;;
+        *) printf '%s\n' "$zone" ;;
+    esac
+}
+
+if [ ! -s "$TZ_STATE" ]; then
+    if current=$(resolve_zone) && [ -f "$ZONEINFO_DIR/$current" ]; then
+        printf '%s\n' "$current" > "$TZ_STATE"
+        chmod 0644 "$TZ_STATE"
+        echo "nabu-timezone: captured current timezone '$current'"
+    fi
 fi
 
-TARGET_TZ=$(cat "$TZ_STATE")
+TARGET_TZ=$(cat "$TZ_STATE" 2>/dev/null || true)
 if [ -z "$TARGET_TZ" ]; then
-    echo "nabu-timezone: timezone file is empty, using image default"
+    echo "nabu-timezone: no persistent timezone set, using image default"
     exit 0
 fi
 
@@ -28,7 +51,8 @@ if mountpoint -q "$LOCALTIME" 2>/dev/null; then
 fi
 
 if ln -sf "$ZONEINFO_DIR/$TARGET_TZ" "$LOCALTIME" 2>/dev/null; then
-    echo "nabu-timezone: symlinked $LOCALTIME -> $ZONEINFO_DIR/$TARGET_TZ"
+    echo "nabu-timezone: applied $LOCALTIME -> $ZONEINFO_DIR/$TARGET_TZ"
 else
     mount --bind "$ZONEINFO_DIR/$TARGET_TZ" "$LOCALTIME"
+    echo "nabu-timezone: bind-mounted $LOCALTIME -> $ZONEINFO_DIR/$TARGET_TZ"
 fi
