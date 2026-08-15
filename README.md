@@ -12,19 +12,6 @@
 
 ---
 
-## Partition Layout
-
-The installer expects the following GPT partitions (already present from a Windows/dual-boot setup):
-
-| Partition | Block Device | Format | Purpose |
-|-----------|-------------|--------|---------|
-| `boot` | `/dev/block/bootdevice/by-name/boot` | Android boot | Patched with DBKP + UEFI payload |
-| `esp` | `/dev/block/by-name/esp` | FAT32 | EFI System Partition (rEFInd, UKI, Windows EFI) |
-| `win` | `/dev/block/by-name/win` | NTFS | Windows installation |
-| `linux` | `/dev/block/by-name/linux` | ext4 | Arch Linux rootfs |
-
----
-
 ## Installation
 
 ### Creating Partitions (if not already present)
