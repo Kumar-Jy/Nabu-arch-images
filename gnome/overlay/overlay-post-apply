@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
 chown -R gdm:gdm /var/lib/gdm/.config/
+rm -rf /etc/dconf/db/local
+dconf update
