@@ -44,6 +44,13 @@ if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     fi
 fi
 
+# Preserve the current (previous kernel's) UKI as a fallback so the last
+# known-good kernel + DTB stays bootable after an upgrade.
+# rEFInd auto-detects both UKIs in EFI/arch (no config change needed).
+if [ -f "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
+    cp -f "$ESP/EFI/arch/arch-linux-nabu.efi" "$ESP/EFI/arch/arch-linux-nabu-fallback.efi"
+    echo "Preserved previous UKI as arch-linux-nabu-fallback.efi"
+fi
 mkdir -p "$ESP/EFI/arch"
 mkinitcpio -P 2>&1 | grep -v 'gzip: stdout: Broken pipe' || true
 
