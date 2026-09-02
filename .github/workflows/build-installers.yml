@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 6.16.0-3 for rodriguezst backup); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
         type: string
         default: ""
         required: false
@@ -433,8 +433,8 @@ jobs:
 
       - name: Create ESP image
         run: |
-          truncate -s 250M ./images/esp.img
-          mkfs.fat -F 32 -S 4096 -n EFI ./images/esp.img
+          truncate -s 270M ./images/esp.img
+          mkfs.fat -F 32 -S 4096 -s 1 -n ESPNABU ./images/esp.img
           mkdir -p ./esp-mount
           sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI
@@ -597,8 +597,8 @@ jobs:
 
       - name: Create ESP image
         run: |
-          truncate -s 250M ./images/esp.img
-          mkfs.fat -F 32 -S 4096 -n EFI ./images/esp.img
+          truncate -s 270M ./images/esp.img
+          mkfs.fat -F 32 -S 4096 -s 1 -n ESPNABU ./images/esp.img
           mkdir -p ./esp-mount
           sudo mount -o loop ./images/esp.img ./esp-mount/
           sudo mkdir -p ./esp-mount/EFI

@@ -43,23 +43,30 @@ ui_print "---------------------------------------------";
 ui_print "              Linux installation             ";
 ui_print "---------------------------------------------";
 ui_print " ";
-ui_print "Checking linux partition device: $linux_part";
-if [ ! -e "$linux_part" ]; then
-  abort "Linux partition device not found: $linux_part";
+# Check if rootfs.img exists inside the ZIP file before proceeding
+if unzip -l "$ZIPFILE" | grep -q "images/rootfs.img"; then
+  ui_print "Checking linux partition device: $linux_part";
+  if [ ! -e "$linux_part" ]; then
+    abort "Linux partition device not found: $linux_part";
+  fi;
+  
+  if mount | grep -q " $linux_part "; then
+    ui_print "Linux partition $linux_part is mounted, unmounting...";
+    umount -lf "$linux_part" || abort "Failed to unmount linux partition $linux_part";
+  fi;
+  
+  blockdev --setrw "$linux_part";
+  ui_print "Formatting and flashing Linux image";
+
+  $mke2fs -t ext4 -F "$linux_part" || abort "Failed to format linux partition";
+
+  $zext e -so "$ZIPFILE" "images/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || abort "Failed to dump rootfs image";
+
+  ui_print " ";
+  ui_print "Done flashing rootfs!";
+else
+  ui_print "images/rootfs.img not found in ZIP, skipping Linux flash.";
 fi;
-if mount | grep -q " $linux_part "; then
-  ui_print "Linux partition $linux_part is mounted, unmounting...";
-  umount -lf "$linux_part" || abort "Failed to unmount linux partition $linux_part";
-fi;
-blockdev --setrw "$linux_part";
-ui_print "Formatting and flashing Linux image";
-
-$mke2fs -t ext4 -F "$linux_part" || abort "Failed to format linux partition";
-
-$zext e -so "$ZIPFILE" "images/rootfs.img" > "$linux_part" 2> "$tmp/7z.err" || abort "Failed to dump rootfs image";
-
-ui_print " ";
-ui_print "Done flashing rootfs!";
 
 ui_print "---------------------------------------------";
 ui_print "             Boot Configuration              ";
