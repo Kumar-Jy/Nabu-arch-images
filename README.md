@@ -104,6 +104,7 @@ the UKI regenerates automatically. If you built it from a **different** PKGBUILD
 (no preset/scriptlet), regenerate manually with the fallback:
 
 ```bash
+sudo chmod 0755 /usr/libexec/nabu/uki-regenerate
 sudo /usr/libexec/nabu/uki-regenerate
 ```
 
