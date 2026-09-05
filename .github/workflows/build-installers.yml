@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.14.11-2); empty = latest in [nabu] repo"
         type: string
-        default: ""
+        default: "6.14.11-2"
         required: false
 
 jobs:
@@ -188,10 +188,11 @@ jobs:
           done
           EOF
 
-      - name: Install qualcomm wlan services
+      - name: Install qualcomm firmware and services
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm tqftpserv rmtfs
+          pacman -S --noconfirm linux-firmware-xiaomi-nabu qrtr tqftpserv rmtfs
+          systemctl enable qrtr-ns || true
           systemctl enable tqftpserv rmtfs
           EOF
 
@@ -271,7 +272,8 @@ jobs:
       - name: Install base packages
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm networkmanager bluez bluez-utils vulkan-freedreno
+          pacman -S --noconfirm networkmanager bluez bluez-utils vulkan-freedreno iio-sensor-proxy psmisc
+          systemctl enable iio-sensor-proxy || true
           EOF
 
       - name: Enable bluetooth and network manager
@@ -369,7 +371,8 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack noto-fonts vulkan-freedreno flatpak gnome-software
+          pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts vulkan-freedreno flatpak gnome-software snapshot loupe gnome-text-editor firefox
+          pacman -S --noconfirm nabu-tablet-mode || true
           EOF
 
       - name: Apply DE overlay
@@ -384,6 +387,7 @@ jobs:
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           systemctl enable gdm
+          systemctl enable nabu-tablet-mode || true
           mkdir -p /etc/gdm
           cat > /etc/gdm/custom.conf << 'EOL'
           [daemon]
@@ -534,7 +538,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak
+          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak kamoso firefox
           EOF
 
       - name: Apply DE overlay

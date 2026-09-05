@@ -15,7 +15,7 @@ echo "Regenerating UKI for kernel ${kernver}..."
 # Ensure a kernel command line exists for the UKI (custom kernels may omit it)
 if [ ! -f /etc/cmdline.d/root.conf ]; then
     mkdir -p /etc/cmdline.d
-    printf 'root=PARTLABEL=linux rw\n' > /etc/cmdline.d/root.conf
+    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive modprobe.blacklist=venus_core,qcom_iris module_blacklist=venus_core,qcom_iris\n' > /etc/cmdline.d/root.conf
 fi
 
 cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET

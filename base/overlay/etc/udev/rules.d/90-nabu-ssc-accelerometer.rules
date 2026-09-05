@@ -1,0 +1,5 @@
+# Nabu's LSM6DSO is managed by the SLPI SSC firmware. Upstream keeps SSC
+# accelerometers experimental, so opt in only on the SDSP FastRPC device.
+ACTION=="remove", GOTO="nabu_ssc_accelerometer_end"
+SUBSYSTEM=="misc", KERNEL=="fastrpc-sdsp*", ENV{IIO_SENSOR_PROXY_TYPE}+="ssc-accel", ENV{ACCEL_MOUNT_MATRIX}="-1,0,0;0,-1,0;0,0,1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="iio-sensor-proxy.service"
+LABEL="nabu_ssc_accelerometer_end"
