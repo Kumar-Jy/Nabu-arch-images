@@ -223,11 +223,20 @@ int main(int argc, char **argv)
 		if (retrigger) {
 			retrigger = 0;
 			if (enabled) {
+				/*
+				 * Wake / retrigger event:
+				 * Pulse SW_TABLET_MODE=OFF for 100ms then restore ON.
+				 * Mutter detects the 0 -> 1 edge and re-binds orientation immediately.
+				 */
 				if (set_tablet_mode(fd, false) < 0)
 					perror("disable tablet mode on retrigger");
-				enabled = false;
-				shell_ticks = 0;
-				printf(DEVICE_NAME ": SW_TABLET_MODE=OFF (pulsed for wake/retrigger)\n");
+				struct timespec pulse = { .tv_sec = 0, .tv_nsec = 100000000L };
+				nanosleep(&pulse, NULL);
+				if (set_tablet_mode(fd, true) < 0) {
+					perror("enable tablet mode on retrigger");
+					goto out_destroy;
+				}
+				printf(DEVICE_NAME ": Pulsed SW_TABLET_MODE OFF->ON for wake/retrigger\n");
 				fflush(stdout);
 			}
 		}

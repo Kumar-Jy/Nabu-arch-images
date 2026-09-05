@@ -3,3 +3,4 @@
 # <file system>  <mount point>      <type> <options>                <dump>  <pass>
 PARTLABEL=linux  /                  ext4   rw,errors=remount-ro,x-systemd.growfs  0 1
 PARTLABEL=esp    /boot/efi/         vfat   fmask=0022,dmask=0022                  0 1
+PARTLABEL=persist /mnt/vendor/persist ext4 noatime,nofail 0 2
