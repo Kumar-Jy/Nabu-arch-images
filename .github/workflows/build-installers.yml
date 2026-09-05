@@ -539,6 +539,7 @@ jobs:
             sleep 5
           done
           pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk breeze-plymouth discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksshaskpass ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak kamoso firefox
+          pacman -S --noconfirm nabu-tablet-mode || true
           EOF
 
       - name: Apply DE overlay
@@ -553,6 +554,7 @@ jobs:
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           systemctl enable sddm
+          systemctl enable nabu-tablet-mode || true
           cat > /etc/sddm.conf.d/autologin.conf << 'EOL'
           [Autologin]
           User=user

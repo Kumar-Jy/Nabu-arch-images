@@ -103,16 +103,22 @@ static bool graphical_user_shell_running(void)
 		if (length <= 0)
 			continue;
 		comm[length] = '\0';
-		if (strcmp(comm, "gnome-shell\n") != 0 &&
-		    strcmp(comm, "gnome-shell") != 0)
+		bool is_gnome = (strcmp(comm, "gnome-shell\n") == 0 ||
+				 strcmp(comm, "gnome-shell") == 0);
+		bool is_plasma = (strcmp(comm, "kwin_wayland\n") == 0 ||
+				  strcmp(comm, "kwin_wayland") == 0 ||
+				  strcmp(comm, "plasmashell\n") == 0 ||
+				  strcmp(comm, "plasmashell") == 0);
+
+		if (!is_gnome && !is_plasma)
 			continue;
 
 		/*
-		 * GDM also runs gnome-shell, commonly under a dynamically allocated
-		 * UID above 1000.  Do not treat the greeter as the user's shell: if
-		 * tablet mode is enabled before the real session starts, the new
-		 * Mutter instance can inhibit orientation tracking during its native
-		 * portrait initialization and never receive a later OFF -> ON edge.
+		 * Greeters (GDM/SDDM) also run shells/compositors, commonly under
+		 * system UIDs or dynamically allocated UIDs above 1000. Do not treat
+		 * the greeter as the user's shell: if tablet mode is enabled before
+		 * the real session starts, the compositor can inhibit orientation
+		 * tracking during its native portrait initialization.
 		 */
 		(void)snprintf(path, sizeof(path), "/proc/%ld/cmdline", pid);
 		cmdline_fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -120,10 +126,14 @@ static bool graphical_user_shell_running(void)
 			cmdline_length = read(cmdline_fd, cmdline,
 					      sizeof(cmdline));
 			close(cmdline_fd);
-			if (cmdline_length > 0 &&
-			    memmem(cmdline, (size_t)cmdline_length,
-				   "--mode=gdm", strlen("--mode=gdm")))
-				continue;
+			if (cmdline_length > 0) {
+				if (is_gnome && memmem(cmdline, (size_t)cmdline_length,
+						       "--mode=gdm", strlen("--mode=gdm")))
+					continue;
+				if (is_plasma && memmem(cmdline, (size_t)cmdline_length,
+							"greeter", strlen("greeter")))
+					continue;
+			}
 		}
 
 		found = true;

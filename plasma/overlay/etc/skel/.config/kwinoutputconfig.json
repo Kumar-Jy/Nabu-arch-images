@@ -3,7 +3,7 @@
     "data": [
       {
         "allowSdrSoftwareBrightness": false,
-        "autoRotation": "Never",
+        "autoRotation": "InTabletMode",
         "brightness": 1,
         "colorPowerTradeoff": "PreferAccuracy",
         "colorProfileSource": "EDID",

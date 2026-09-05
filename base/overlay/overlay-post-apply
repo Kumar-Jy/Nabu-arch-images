@@ -25,3 +25,15 @@ if grep -q '^#IgnorePkg' /etc/pacman.conf; then
 else
     sed -i '/^\[options\]/a\IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf
 fi
+
+# Build and enable nabu-tablet-mode
+if [ -f /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c ] && [ ! -f /usr/local/libexec/nabu-tablet-mode ]; then
+    mkdir -p /usr/local/libexec
+    if command -v gcc >/dev/null 2>&1; then
+        gcc -O2 -Wall -Wextra /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c -o /usr/local/libexec/nabu-tablet-mode
+        chmod 755 /usr/local/libexec/nabu-tablet-mode
+    fi
+fi
+if [ -f /etc/systemd/system/nabu-tablet-mode.service ] || [ -f /usr/lib/systemd/system/nabu-tablet-mode.service ]; then
+    systemctl enable nabu-tablet-mode.service 2>/dev/null || true
+fi
