@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# localtime-capture: Save the current timezone to persistent state.
+# Called when /etc/localtime changes (systemd .path) and at shutdown, so a
+# timezone picked via GNOME Settings / timedatectl survives even if /etc is
+# reset on the next boot.
+set -euo pipefail
+
+TZ_STATE="/var/lib/nabu/timezone"
+LOCALTIME="/etc/localtime"
+ZONEINFO_DIR="/usr/share/zoneinfo"
+
+mkdir -p /var/lib/nabu
+
+zone=""
+if command -v timedatectl >/dev/null 2>&1; then
+    zone=$(timedatectl show --property=Timezone --value 2>/dev/null || true)
+fi
+if [ -z "$zone" ] || [ "$zone" = "n/a" ] && [ -L "$LOCALTIME" ]; then
+    target=$(readlink -f "$LOCALTIME" 2>/dev/null || true)
+    zone=${target#/usr/share/zoneinfo/}
+fi
+
+case "$zone" in
+    n/a|"")
+        echo "nabu-local-capture: no valid timezone to capture" >&2
+        exit 0
+        ;;
+esac
+
+if [ ! -f "$ZONEINFO_DIR/$zone" ]; then
+    echo "nabu-local-capture: ignoring invalid timezone '$zone'" >&2
+    exit 0
+fi
+
+current=$(cat "$TZ_STATE" 2>/dev/null || true)
+if [ "$current" = "$zone" ]; then
+    exit 0
+fi
+
+printf '%s\n' "$zone" > "$TZ_STATE"
+chmod 0644 "$TZ_STATE"
+echo "nabu-local-capture: saved timezone '$zone' to $TZ_STATE"

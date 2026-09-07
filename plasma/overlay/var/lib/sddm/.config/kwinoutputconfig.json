@@ -1,0 +1,109 @@
+[
+  {
+    "data": [
+      {
+        "allowSdrSoftwareBrightness": false,
+        "autoRotation": "Never",
+        "brightness": 1,
+        "colorPowerTradeoff": "PreferAccuracy",
+        "colorProfileSource": "EDID",
+        "connectorName": "DSI-1",
+        "highDynamicRange": false,
+        "iccProfilePath": "",
+        "mode": {
+          "height": 2560,
+          "refreshRate": 120000,
+          "width": 1600
+        },
+        "overscan": 0,
+        "rgbRange": "Automatic",
+        "scale": 2,
+        "sdrBrightness": 200,
+        "sdrGamutWideness": 0,
+        "transform": "Rotated270",
+        "vrrPolicy": "Automatic",
+        "wideColorGamut": false
+      }
+    ],
+    "name": "outputs"
+  },
+  {
+    "data": [
+      {
+        "lidClosed": false,
+        "outputs": [
+          {
+            "enabled": true,
+            "outputIndex": 0,
+            "position": {
+              "x": 1463,
+              "y": 0
+            },
+            "priority": 1
+          },
+          {
+            "enabled": true,
+            "outputIndex": 1,
+            "position": {
+              "x": 0,
+              "y": 143
+            },
+            "priority": 0
+          }
+        ]
+      },
+      {
+        "lidClosed": false,
+        "outputs": [
+          {
+            "enabled": true,
+            "outputIndex": 1,
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "priority": 0
+          }
+        ]
+      },
+      {
+        "lidClosed": true,
+        "outputs": [
+          {
+            "enabled": true,
+            "outputIndex": 1,
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "priority": 0
+          }
+        ]
+      },
+      {
+        "lidClosed": false,
+        "outputs": [
+          {
+            "enabled": true,
+            "outputIndex": 1,
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "priority": 1
+          },
+          {
+            "enabled": true,
+            "outputIndex": 2,
+            "position": {
+              "x": 1707,
+              "y": 0
+            },
+            "priority": 0
+          }
+        ]
+      }
+    ],
+    "name": "setups"
+  }
+]

@@ -1,0 +1,6 @@
+[Unit]
+Description=Capture current timezone to persistent state
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu/localtime-capture

@@ -1,0 +1,12 @@
+[Unit]
+Description=Set up systemd-boot on ESP
+After=local-fs.target
+Before=ostree-finalize-staged.service bootc-finalize-staged.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu/bootc-boot-setup
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

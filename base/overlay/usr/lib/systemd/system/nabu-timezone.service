@@ -1,0 +1,12 @@
+[Unit]
+Description=Persist Timezone for Nabu
+After=local-fs.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu/timezone-setup
+RemainAfterExit=yes
+
+[Install]
+WantedBy=basic.target

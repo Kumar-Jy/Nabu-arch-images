@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+for i in 1 2 3; do
+    pacman --disable-download-timeout "$@" && break || sleep 10
+done

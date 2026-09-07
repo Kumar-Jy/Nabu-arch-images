@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# nabu-set-timezone: Set and persist the timezone.
+# Persistence is handled automatically by nabu-localtime.path (which captures
+# any /etc/localtime change) plus the boot-time timezone-setup service.
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <timezone>"
+    echo "Example: $0 Asia/Kolkata"
+    echo ""
+    echo "Available timezones:"
+    timedatectl list-timezones 2>/dev/null || ls /usr/share/zoneinfo/ | head -30
+    exit 1
+fi
+
+TZ="$1"
+ZONEINFO_DIR="/usr/share/zoneinfo"
+
+if [ ! -f "$ZONEINFO_DIR/$TZ" ]; then
+    echo "Error: '$TZ' is not a valid timezone." >&2
+    echo "Run 'timedatectl list-timezones' for available options." >&2
+    exit 1
+fi
+
+timedatectl set-timezone "$TZ"
+/usr/libexec/nabu/localtime-capture
+
+echo "Timezone '$TZ' set and saved persistently. Will survive reboots and bootc updates."
