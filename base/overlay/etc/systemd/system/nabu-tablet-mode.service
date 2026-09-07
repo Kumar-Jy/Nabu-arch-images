@@ -1,0 +1,14 @@
+[Unit]
+Description=Expose Nabu as a tablet to GNOME/Mutter
+After=systemd-udevd.service dev-uinput.device
+Before=display-manager.service
+ConditionPathExists=/dev/uinput
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/nabu-tablet-mode
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=graphical.target

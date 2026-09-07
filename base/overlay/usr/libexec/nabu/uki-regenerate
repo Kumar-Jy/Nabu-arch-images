@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Fallback handler for regenerating the nabu UKI. Triggered by the pacman
+# hook; usable directly after installing any (even custom/local) kernel.
+
+kernver="${1:-$(ls /usr/lib/modules/ 2>/dev/null | sort -V | tail -1)}"
+if [ -z "$kernver" ]; then
+    echo "No kernel version found" >&2
+    exit 1
+fi
+
+echo "Regenerating UKI for kernel ${kernver}..."
+
+# Ensure a kernel command line exists for the UKI (custom kernels may omit it).
+# iris/venus video decode is enabled by default; strip the stale blacklist that
+# older images shipped in root.conf so it never survives on a fresh install.
+if [ ! -f /etc/cmdline.d/root.conf ]; then
+    mkdir -p /etc/cmdline.d
+    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive\n' > /etc/cmdline.d/root.conf
+else
+    sed -i -e 's/ modprobe.blacklist=venus_core,qcom_iris//' \
+           -e 's/ module_blacklist=venus_core,qcom_iris//' \
+           /etc/cmdline.d/root.conf
+fi
+
+cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
+# mkinitcpio preset file for the 'linux-nabu' package
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-${kernver}"
+
+PRESETS=('default')
+
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
+PRESET
+
+if [ -f /usr/lib/kernel/uki.conf ]; then
+    sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+fi
+
+ESP="/boot/efi"
+if ! findmnt -M "$ESP" > /dev/null 2>&1; then
+    echo "ESP not mounted at $ESP, attempting mount..."
+    mkdir -p "$ESP"
+    if ! mount PARTLABEL=esp "$ESP" 2>/dev/null \
+        && ! mount /dev/disk/by-partlabel/esp "$ESP" 2>/dev/null; then
+        echo "WARNING: could not mount ESP at $ESP; verify the output UKI path" >&2
+    fi
+fi
+
+# Preserve the current (previous kernel's) UKI as a fallback so the last
+# known-good kernel + DTB stays bootable after an upgrade.
+# rEFInd auto-detects both UKIs in EFI/arch (no config change needed).
+if [ -f "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
+    cp -f "$ESP/EFI/arch/arch-linux-nabu.efi" "$ESP/EFI/arch/arch-linux-nabu-old.efi"
+    echo "Preserved previous UKI as arch-linux-nabu-old.efi"
+fi
+
+# Re-link any preserved old module directories so WiFi/BT/touch/sound work in fallback
+for olddir in /usr/lib/modules/*.old /usr/lib/modules/*.safe; do
+    [ -d "$olddir" ] || continue
+    base=$(basename "$olddir")
+    base="${base%.old}"
+    base="${base%.safe}"
+    if [ ! -e "/usr/lib/modules/${base}" ]; then
+        ln -sf "$(basename "$olddir")" "/usr/lib/modules/${base}" 2>/dev/null || true
+    fi
+done
+
+mkdir -p "$ESP/EFI/arch"
+mkinitcpio -P 2>&1 | grep -v 'gzip: stdout: Broken pipe' || true
+
+echo "UKI regeneration complete for kernel ${kernver}"

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+kernver=$(ls /usr/lib/modules/ | sort -V | tail -1)
+if [ -n "$kernver" ]; then
+  cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
+# mkinitcpio preset file for the 'linux-nabu' package
+
+ALL_kver="$kernver"
+
+PRESETS=('default')
+
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
+PRESET
+
+  sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+else
+  echo "ERROR: no kernel modules found in /usr/lib/modules - is linux-nabu installed?" >&2
+  exit 1
+fi
+
+sed -i '/^IgnorePkg/d' /etc/pacman.conf
+if grep -q '^#IgnorePkg' /etc/pacman.conf; then
+    sed -i '/^#IgnorePkg/c\IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf
+else
+    sed -i '/^\[options\]/a\IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf
+fi
+
+# Build and enable nabu-tablet-mode
+if [ -f /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c ] && [ ! -f /usr/local/libexec/nabu-tablet-mode ]; then
+    mkdir -p /usr/local/libexec
+    if command -v gcc >/dev/null 2>&1; then
+        gcc -O2 -Wall -Wextra /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c -o /usr/local/libexec/nabu-tablet-mode
+        chmod 755 /usr/local/libexec/nabu-tablet-mode
+    fi
+fi
+if [ -f /etc/systemd/system/nabu-tablet-mode.service ] || [ -f /usr/lib/systemd/system/nabu-tablet-mode.service ]; then
+    systemctl enable nabu-tablet-mode.service 2>/dev/null || true
+fi
