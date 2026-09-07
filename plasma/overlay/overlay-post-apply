@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+chown -R sddm:sddm /var/lib/sddm/.config/

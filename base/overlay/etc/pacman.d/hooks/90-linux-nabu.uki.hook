@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux-nabu*
+
+[Action]
+Description = Regenerating UKI for linux-nabu...
+When = PostTransaction
+Exec = /usr/libexec/nabu/uki-regenerate
+Depends = mkinitcpio
