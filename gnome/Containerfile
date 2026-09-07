@@ -1,0 +1,31 @@
+ARG BASE_IMAGE=ghcr.io/nabu-alarm/nabu-base:latest
+FROM ${BASE_IMAGE}
+
+LABEL containers.bootc="1"
+LABEL ostree.bootable="true"
+
+# --- Install GNOME Desktop + dependencies ---
+RUN set -eux; \
+    pacman -Syu --noconfirm; \
+    pacman -S --noconfirm \
+        upower power-profiles-daemon gdm gnome-backgrounds gnome-control-center \
+        gnome-keyring gnome-menus xdg-user-dirs-gtk nautilus \
+        xdg-desktop-portal-gnome gnome-console \
+        pipewire pipewire-pulse pipewire-jack \
+        network-manager-applet \
+        noto-fonts \
+        firefox flatpak gnome-software; \
+    flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
+    dconf update; \
+    pacman -Scc --noconfirm
+
+# --- Enable GDM + auto-login ---
+RUN systemctl enable gdm || true; \
+    mkdir -p /etc/gdm; \
+    printf '[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=user\n' > /etc/gdm/custom.conf
+
+# --- Apply DE overlay ---
+ADD overlay/ /
+
+# --- Compile dconf databases after overlay is applied ---
+RUN dconf update

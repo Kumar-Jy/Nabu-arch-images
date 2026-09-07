@@ -1,0 +1,12 @@
+[Unit]
+Description=Regenerate UKI after bootc deployment
+After=ostree-finalize-staged.service bootc-finalize-staged.service
+Wants=ostree-finalize-staged.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu/bootc-uki-sync
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Expand root filesystem to fill partition
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/scripts/expand-rootfs.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
