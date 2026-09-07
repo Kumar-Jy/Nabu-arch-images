@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# bootc-uki-sync: Regenerate UKI after bootc deploys a new image
+# Called by ostree-finalize-staged hook or manually
+set -euo pipefail
+
+KERNVER="${1:-$(ls /usr/lib/modules/ | sort -V | tail -1)}"
+ESP="/boot/efi"
+
+if [ -z "$KERNVER" ]; then
+    echo "No kernel version found" >&2
+    exit 1
+fi
+
+echo "Regenerating UKI for kernel ${KERNVER}..."
+
+# Read current ostree deployment path from kernel cmdline, existing root.conf, or auto-detect
+CURRENT_OSTREE=$(sed -n 's/.* ostree=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null || echo "")
+if [ -z "$CURRENT_OSTREE" ] && [ -f /etc/cmdline.d/root.conf ]; then
+    CURRENT_OSTREE=$(sed -n 's/.* ostree=\([^ ]*\).*/\1/p' /etc/cmdline.d/root.conf 2>/dev/null || echo "")
+fi
+if [ -z "$CURRENT_OSTREE" ]; then
+    CURRENT_OSTREE=$(ostree admin --sysroot=/ --print-current-dir 2>/dev/null || echo "")
+fi
+if [ -n "$CURRENT_OSTREE" ]; then
+    echo "root=PARTLABEL=linux ostree=${CURRENT_OSTREE} rw" > /etc/cmdline.d/root.conf
+fi
+
+# Update mkinitcpio preset with correct kver
+cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
+ALL_kver="${KERNVER}"
+PRESETS=('default' 'fallback')
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+fallback_uki="/boot/efi/EFI/arch/arch-linux-nabu-fallback.efi"
+default_cmdline="/etc/cmdline.d/root.conf"
+fallback_cmdline="/etc/cmdline.d/root.conf"
+default_hooks=("systemd" "autodetect" "modconf" "kms" "keyboard" "keymap" "consolefont" "block" "filesystems" "fsck" "ostree")
+fallback_hooks=("systemd" "autodetect" "modconf" "kms" "keyboard" "keymap" "consolefont" "block" "filesystems" "fsck" "ostree")
+PRESET
+
+# Update DeviceTree path in uki.conf
+if [ -f /usr/lib/kernel/uki.conf ]; then
+    sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${KERNVER}|" /usr/lib/kernel/uki.conf
+fi
+
+# Ensure ESP is mounted
+if ! findmnt -M "$ESP" > /dev/null 2>&1; then
+    echo "ESP not mounted at $ESP, attempting mount..."
+    mkdir -p "$ESP"
+    mount PARTLABEL=esp "$ESP" 2>/dev/null || true
+fi
+
+# Generate UKI
+mkdir -p "$ESP/EFI/arch"
+mkinitcpio -P 2>&1 | grep -v 'gzip: stdout: Broken pipe' || true
+
+echo "UKI regeneration complete for kernel ${KERNVER}"

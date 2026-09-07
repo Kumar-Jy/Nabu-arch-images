@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+chown -R gdm:gdm /var/lib/gdm/.config/ 2>/dev/null || true
+chown -R user:user /var/home/user/ 2>/dev/null || true
+
+# Compile dconf system databases
+dconf update
+
+# Ensure Flathub remote is available system-wide
+flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true

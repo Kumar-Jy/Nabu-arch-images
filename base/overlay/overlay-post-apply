@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+kernver=$(ls /usr/lib/modules/ | sort -V | tail -1)
+if [ -n "$kernver" ]; then
+  cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
+# mkinitcpio preset file for the 'linux-nabu' package
+
+ALL_kver="$kernver"
+
+PRESETS=('default' 'fallback')
+
+default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
+
+fallback_uki="/boot/efi/EFI/arch/arch-linux-nabu-fallback.efi"
+fallback_hooks=("systemd" "autodetect" "modconf" "kms" "keyboard" "keymap" "consolefont" "block" "filesystems" "fsck" "ostree")
+PRESET
+
+  sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+fi

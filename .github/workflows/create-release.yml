@@ -1,0 +1,188 @@
+name: Create Installer Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      gnome_run_id:
+        description: "GNOME build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+      plasma_run_id:
+        description: "Plasma build run ID (empty = auto-detect latest)"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  create-release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Auto-detect latest runs
+        env:
+          GH_API: https://api.github.com/repos/${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GNOME_ID="${{ inputs.gnome_run_id }}"
+          PLASMA_ID="${{ inputs.plasma_run_id }}"
+
+          if [ -z "$GNOME_ID" ]; then
+            GNOME_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-gnome.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+          if [ -z "$PLASMA_ID" ]; then
+            PLASMA_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/workflows/build-plasma.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
+              | jq -r '.workflow_runs[0].id // ""')
+          fi
+
+          echo "GNOME_RUN_ID=$GNOME_ID" >> $GITHUB_ENV
+          echo "PLASMA_RUN_ID=$PLASMA_ID" >> $GITHUB_ENV
+
+      - name: Generate download scripts
+        run: |
+          mkdir -p scripts-tmp
+
+          if [ -n "$GNOME_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-gnome.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-gnome.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-gnome.sh
+            echo "RUN_ID=\"$GNOME_RUN_ID\"" >> scripts-tmp/get-gnome.sh
+            echo 'ARTIFACT="Nabu-alarm-atomic-gnome-installer"' >> scripts-tmp/get-gnome.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-gnome.sh
+            echo 'echo "Downloading GNOME installer from:"' >> scripts-tmp/get-gnome.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-gnome.sh
+            echo 'curl -fL "$URL" -o nabu-gnome-installer.zip' >> scripts-tmp/get-gnome.sh
+            echo 'echo "Saved: nabu-gnome-installer.zip"' >> scripts-tmp/get-gnome.sh
+            chmod +x scripts-tmp/get-gnome.sh
+          fi
+
+          if [ -n "$PLASMA_RUN_ID" ]; then
+            echo '#!/usr/bin/env bash' > scripts-tmp/get-plasma.sh
+            echo 'set -euo pipefail' >> scripts-tmp/get-plasma.sh
+            echo "REPO=\"${{ github.repository }}\"" >> scripts-tmp/get-plasma.sh
+            echo "RUN_ID=\"$PLASMA_RUN_ID\"" >> scripts-tmp/get-plasma.sh
+            echo 'ARTIFACT="Nabu-alarm-atomic-plasma-installer"' >> scripts-tmp/get-plasma.sh
+            echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-plasma.sh
+            echo 'echo "Downloading Plasma installer from:"' >> scripts-tmp/get-plasma.sh
+            echo 'echo "  $URL"' >> scripts-tmp/get-plasma.sh
+            echo 'curl -fL "$URL" -o nabu-plasma-installer.zip' >> scripts-tmp/get-plasma.sh
+            echo 'echo "Saved: nabu-plasma-installer.zip"' >> scripts-tmp/get-plasma.sh
+            chmod +x scripts-tmp/get-plasma.sh
+
+
+          fi
+
+      - name: Upload to Pixeldrain
+        id: upload
+        run: |
+          if [ -n "$PLASMA_RUN_ID" ]; then
+            echo "Uploading Plasma artifact..."
+            curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$PLASMA_RUN_ID/Nabu-alarm-atomic-plasma-installer.zip"
+            PLASMA_RES=$(curl -s -T Nabu-alarm-atomic-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            PLASMA_PD_ID=$(echo "$PLASMA_RES" | jq -r '.id')
+            echo "plasma_url=https://pixeldrain.com/u/$PLASMA_PD_ID" >> $GITHUB_OUTPUT
+            rm -f Nabu-alarm-atomic-plasma-installer.zip
+          fi
+          if [ -n "$GNOME_RUN_ID" ]; then
+            echo "Uploading GNOME artifact..."
+            curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$GNOME_RUN_ID/Nabu-alarm-atomic-gnome-installer.zip"
+            GNOME_RES=$(curl -s -T Nabu-alarm-atomic-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            GNOME_PD_ID=$(echo "$GNOME_RES" | jq -r '.id')
+            echo "gnome_url=https://pixeldrain.com/u/$GNOME_PD_ID" >> $GITHUB_OUTPUT
+            rm -f Nabu-alarm-atomic-gnome-installer.zip
+          fi
+
+      - name: Build release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_API: https://api.github.com/repos/${{ github.repository }}
+        run: |
+          GNOME_DATE=""
+          PLASMA_DATE=""
+          if [ -n "$GNOME_RUN_ID" ]; then
+            GNOME_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$GNOME_RUN_ID" | jq -r '.created_at // ""')
+          fi
+          if [ -n "$PLASMA_RUN_ID" ]; then
+            PLASMA_DATE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "$GH_API/actions/runs/$PLASMA_RUN_ID" | jq -r '.created_at // ""')
+          fi
+          LATEST_DATE=$(echo -e "$GNOME_DATE\n$PLASMA_DATE" | sort -r | head -1)
+          if [ -n "$LATEST_DATE" ]; then
+            BUILD_DATE=$(date -d "$LATEST_DATE" +%d.%m.%Y 2>/dev/null || echo "latest")
+          else
+            BUILD_DATE="latest"
+          fi
+
+          cat > release-notes.md << BODY
+          Built images (bootc/ostree atomic updates)
+
+          BODY
+          if [ -n "$GNOME_RUN_ID" ]; then
+            echo "- GNOME" >> release-notes.md
+          fi
+          if [ -n "$PLASMA_RUN_ID" ]; then
+            echo "- KDE Plasma" >> release-notes.md
+          fi
+          echo "Build date: $BUILD_DATE" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Login Credentials:" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Username: user" >> release-notes.md
+          echo "Password: 123456" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "First Boot:" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "The system will auto-login to the desktop" >> release-notes.md
+          echo "Use password 123456 for sudo operations" >> release-notes.md
+          echo "Connect to Wi-Fi using NetworkManager (click network icon in system tray)" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Downloads:" >> release-notes.md
+          echo "" >> release-notes.md
+          if [ -n "$PLASMA_RUN_ID" ]; then
+            echo "- [Plasma Installer Zip](https://nightly.link/${{ github.repository }}/actions/runs/$PLASMA_RUN_ID)" >> release-notes.md
+          fi
+          if [ -n "$GNOME_RUN_ID" ]; then
+            echo "- [GNOME Installer Zip](https://nightly.link/${{ github.repository }}/actions/runs/$GNOME_RUN_ID)" >> release-notes.md
+          fi
+          echo "" >> release-notes.md
+          echo "Pixeldrain Downloads:" >> release-notes.md
+          echo "" >> release-notes.md
+          PLASMA_PD_URL="${{ steps.upload.outputs.plasma_url }}"
+          GNOME_PD_URL="${{ steps.upload.outputs.gnome_url }}"
+          if [ -n "$PLASMA_PD_URL" ]; then
+            echo "- [Plasma Installer (Pixeldrain)]($PLASMA_PD_URL)" >> release-notes.md
+          fi
+          if [ -n "$GNOME_PD_URL" ]; then
+            echo "- [GNOME Installer (Pixeldrain)]($GNOME_PD_URL)" >> release-notes.md
+          fi
+
+      - name: Update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete arch-atomic --yes 2>/dev/null || true
+          sleep 2
+
+          files=""
+          for f in scripts-tmp/get-*.sh; do
+            [ -f "$f" ] && files="$files $f"
+          done
+
+          if [ -n "$files" ]; then
+            gh release create arch-atomic \
+              --title "Arch Atomic" \
+              --notes-file release-notes.md \
+              $files
+          else
+            echo "No scripts generated, nothing to release."
+          fi
