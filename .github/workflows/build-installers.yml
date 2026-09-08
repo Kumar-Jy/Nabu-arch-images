@@ -276,7 +276,7 @@ jobs:
       - name: Install base packages
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm networkmanager bluez bluez-utils vulkan-freedreno iio-sensor-proxy psmisc ntfs-3g
+          pacman -S --noconfirm networkmanager bluez bluez-utils vulkan-freedreno iio-sensor-proxy psmisc ntfs-3g iris-vaapi
           systemctl enable iio-sensor-proxy || true
           EOF
 
