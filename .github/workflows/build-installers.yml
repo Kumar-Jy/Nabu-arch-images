@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 6.14.11-5); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.14.11-8); empty = latest in [nabu] repo"
         type: string
-        default: "6.14.11-5"
+        default: "6.14.11-8"
         required: false
 
 jobs:
@@ -252,7 +252,8 @@ jobs:
       - name: Configure mkinitcpio
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          sed -i "s|HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)|HOOKS=(base udev autodetect modconf kms keyboard keymap consolefont block filesystems fsck)|g" /etc/mkinitcpio.conf
+          sed -i -e "s/ autodetect//g" -e "s/ microcode//g" /etc/mkinitcpio.conf
+          sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /etc/mkinitcpio.conf
           EOF
 
       - name: Generate UKI

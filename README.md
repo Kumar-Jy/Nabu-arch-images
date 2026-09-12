@@ -138,7 +138,11 @@ PRESETS=('default')
 default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
 default_cmdline="/etc/cmdline.d/root.conf"
 EOF
-sudo sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+sudo mkdir -p /etc/kernel
+sudo tee /etc/kernel/uki.conf > /dev/null << EOF
+[UKI]
+DeviceTree=/boot/dtb-${kernver}
+EOF
 sudo mkinitcpio -P
 ```
 

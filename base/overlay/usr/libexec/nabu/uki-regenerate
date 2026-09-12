@@ -17,11 +17,14 @@ echo "Regenerating UKI for kernel ${kernver}..."
 # older images shipped in root.conf so it never survives on a fresh install.
 if [ ! -f /etc/cmdline.d/root.conf ]; then
     mkdir -p /etc/cmdline.d
-    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive\n' > /etc/cmdline.d/root.conf
+    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' > /etc/cmdline.d/root.conf
 else
     sed -i -e 's/ modprobe.blacklist=venus_core,qcom_iris//' \
            -e 's/ module_blacklist=venus_core,qcom_iris//' \
            /etc/cmdline.d/root.conf
+    if ! grep -q 'acpi=off' /etc/cmdline.d/root.conf; then
+        sed -i 's/$/ acpi=off/' /etc/cmdline.d/root.conf
+    fi
 fi
 
 cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
@@ -36,8 +39,26 @@ default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
 default_cmdline="/etc/cmdline.d/root.conf"
 PRESET
 
-if [ -f /usr/lib/kernel/uki.conf ]; then
-    sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+mkdir -p /etc/kernel
+if [ ! -f /etc/kernel/uki.conf ]; then
+    if [ -f /usr/lib/kernel/uki.conf ]; then
+        cp /usr/lib/kernel/uki.conf /etc/kernel/uki.conf
+    else
+        printf '[UKI]\n' > /etc/kernel/uki.conf
+    fi
+fi
+
+dtb_target="/boot/dtb-${kernver}"
+if [ ! -f "$dtb_target" ] && [ -f "/boot/dtb-linux-nabu" ]; then
+    dtb_target="/boot/dtb-linux-nabu"
+fi
+
+if grep -q '^DeviceTree=' /etc/kernel/uki.conf; then
+    sed -i "s|^DeviceTree=.*|DeviceTree=${dtb_target}|" /etc/kernel/uki.conf
+elif grep -q '^\\[UKI\\]' /etc/kernel/uki.conf; then
+    sed -i "/^\\[UKI\\]/a DeviceTree=${dtb_target}" /etc/kernel/uki.conf
+else
+    printf '\n[UKI]\nDeviceTree=%s\n' "${dtb_target}" >> /etc/kernel/uki.conf
 fi
 
 ESP="/boot/efi"

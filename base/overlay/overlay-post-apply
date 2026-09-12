@@ -13,10 +13,24 @@ default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
 default_cmdline="/etc/cmdline.d/root.conf"
 PRESET
 
-  sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /usr/lib/kernel/uki.conf
+  mkdir -p /etc/kernel
+  if [ ! -f /etc/kernel/uki.conf ]; then
+    printf '[UKI]\nDeviceTree=/boot/dtb-%s\n' "${kernver}" > /etc/kernel/uki.conf
+  elif grep -q '^DeviceTree=' /etc/kernel/uki.conf; then
+    sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${kernver}|" /etc/kernel/uki.conf
+  elif grep -q '^\\[UKI\\]' /etc/kernel/uki.conf; then
+    sed -i "/^\\[UKI\\]/a DeviceTree=/boot/dtb-${kernver}" /etc/kernel/uki.conf
+  else
+    printf '\n[UKI]\nDeviceTree=/boot/dtb-%s\n' "${kernver}" >> /etc/kernel/uki.conf
+  fi
 else
   echo "ERROR: no kernel modules found in /usr/lib/modules - is linux-nabu installed?" >&2
   exit 1
+fi
+
+if [ -f /etc/mkinitcpio.conf ]; then
+  sed -i -e 's/ autodetect//g' -e 's/ microcode//g' /etc/mkinitcpio.conf
+  sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /etc/mkinitcpio.conf
 fi
 
 sed -i '/^IgnorePkg/d' /etc/pacman.conf
