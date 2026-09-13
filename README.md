@@ -3,6 +3,18 @@
 
 ---
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Hardware Support Status](#hardware-support-status)
+- [Installation](#installation)
+- [Updating the Kernel](#updating-the-kernel)
+- [Troubleshooting](#troubleshooting)
+- [Credit & Thanks](#credit--thanks)
+- [See Also](#see-also)
+
+---
+
 ## Requirements
 
 - Xiaomi Pad 5 (nabu)
@@ -12,22 +24,33 @@
 
 ---
 
-## Sensors (SLPI/SSC) and persist
+## Hardware Support Status
 
-The image ships the complete SLPI sensor userspace out of the box:
-
-- `linux-firmware-xiaomi-nabu` provides `slpi_nb.mbn` and the raw sensor config.
-- `hexagonrpcd` serves the SLPI sensors filesystem over FastRPC (sdsp) and
-  anchors sensor suspend/resume; it rejects all DSP writes by design.
-- `qrtr` / `tqftpserv` carry the QRTR sensor data plane (registry persistence
-  lands in `/var/lib/tqftpserv`, never on the persist partition).
-- `iio-sensor-proxy` exposes SSC over D-Bus
-  (`HasAccelerometer`/`HasAmbientLight` true, `net.hadess.SensorProxy`).
-- `nabu-tablet-mode` drives GNOME/KDE automatic screen rotation.
-
-The Android `persist` partition (`PARTLABEL=persist`) is mounted **read-only**
-under `/mnt/vendor/persist` and is never written by the sensor stack, so a
-fresh install cannot modify factory calibration/NVRAM data.
+| Category | Hardware Feature | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate |
+| **Touch** | Capacitive Multi-touch | ✅ Working | 10-point multi-touch supported out of the box |
+| **Graphics** | 3D GPU Acceleration (Adreno 640) | ✅ Working | Mesa Turnip (Vulkan 1.3) & Freedreno (OpenGL 4.6) |
+| **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 stateful decode (H.264, HEVC, VP9) |
+| **Audio** | Quad Stereo Speakers | ✅ Working | ALSA UCM + PipeWire (WCD9340 + WSA8810 smart amps) |
+| **Microphone** | Built-in Mic Array | ✅ Working | Clear audio recording via PipeWire |
+| **Camera (Rear)** | 13MP OmniVision OV13B10 | ✅ Working | `camera-studio` / libcamera with VCM autofocus |
+| **Camera (Front)** | 8MP OmniVision OV8856 | ✅ Working | `camera-studio` with upright orientation correction |
+| **Flash / Torch** | Dual Rear LED Flash | ⚠️ Partial | Controlled via sysfs flash node |
+| **Wireless** | Wi-Fi 5 (802.11ac 2.4/5GHz) | ✅ Working | Qualcomm WCN3990 via NetworkManager |
+| **Bluetooth** | Bluetooth 5.0 | ✅ Working | Qualcomm WCN3990 via BlueZ |
+| **Sensors** | Accelerometer & Gyroscope | ✅ Working | SLPI/SSC via FastRPC & `iio-sensor-proxy` |
+| **Screen Rotation** | Automatic Screen Rotation | ✅ Working | Handled via `nabu-tablet-mode` daemon |
+| **Auto-Brightness** | Ambient Light Sensor (ALS) | ✅ Working | Native `gsd-power` on GNOME, `nabu-autobrightness` on Plasma |
+| **Touch Keyboard** | Virtual Touch Keyboard | ✅ Working | Built-in `oskb` with resize presets & arrow navigation |
+| **Stylus** | Xiaomi Smart Pen | ✅ Working | Stylus tap and pointer events |
+| **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
+| **Battery & Power** | Battery Telemetry & Charging | ✅ Working | Battery percentage via `upower-nncc`, USB-PD / QC charging |
+| **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
+| **USB** | USB Type-C 2.0 & OTG | ✅ Working | Flash drives, mice, keyboards, hubs supported |
+| **External Display** | USB DisplayLink Output | ✅ Working | Supported with DisplayLink docks (`displaylink` + `evdi`) |
+| **External Display** | USB-C DisplayPort Alt-Mode | ❌ Not Supported | Hardware limitation (SoC USB lines lack DP routing) |
+| **DRM** | Widevine L1 (HD Streaming) | ❌ Not Supported | Widevine L3 software works; L1 requires Android TEE |
 
 ---
 
@@ -89,12 +112,6 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 
 ---
 
-## Troubleshooting
-
-For solutions to common issues (such as boot loops after updates, Wi-Fi MAC address fixes, or recovering from a locked emergency console), see the [Troubleshooting Guide](TROUBLESHOOTING.md).
-
----
-
 ## Updating the Kernel
 
 ### Official update (from the nabu repository)
@@ -111,7 +128,7 @@ If you built your own kernel package:
 # 1. Build your own package (bump pkgver / pkgrel on EVERY build!)
 makepkg
 # 2. Install it directly
-sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.zst
+sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.xz
 ```
 
 > pacman decides "is this an update?" using only `pkgver`/`pkgrel`, never the kernel
@@ -119,71 +136,52 @@ sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.zst
 > install, so the UKI won't be regenerated. Always bump `pkgver` (or `pkgrel`) for
 > each new build.
 
-If your package ships the preset + install scriptlet (like the official `PKGBUILD`),
-the UKI regenerates automatically. If you built it from a **different** PKGBUILD
-(no preset/scriptlet), regenerate manually with the fallback:
+The UKI is regenerated automatically by the pacman hook for any package named
+`linux-nabu*`, including custom builds. To force a rebuild manually:
 
 ```bash
-sudo chmod 0755 /usr/libexec/nabu/uki-regenerate
 sudo /usr/libexec/nabu/uki-regenerate
-```
-
-Or, if the script is unavailable, do it by hand:
-
-```bash
-kernver=$(ls /usr/lib/modules/ | sort -V | tail -1)
-sudo tee /etc/mkinitcpio.d/linux-nabu.preset > /dev/null << EOF
-ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="/boot/vmlinuz-${kernver}"
-PRESETS=('default')
-default_uki="/boot/efi/EFI/arch/arch-linux-nabu.efi"
-default_cmdline="/etc/cmdline.d/root.conf"
-EOF
-sudo mkdir -p /etc/kernel
-sudo tee /etc/kernel/uki.conf > /dev/null << EOF
-[UKI]
-DeviceTree=/boot/dtb-${kernver}
-EOF
-sudo mkinitcpio -P
-```
-
-Verify the UKI was produced:
-
-```bash
-findmnt /boot/efi
-ls -l /boot/efi/EFI/arch/
 ```
 
 ### Offline Kernel Install / Recovery via TWRP
 
-If Linux cannot boot or you want to install/update a kernel package (`.pkg.tar.zst`) completely offline using TWRP:
+If Linux cannot boot or you want to install/update a kernel package (`.pkg.tar.xz`) completely offline using TWRP:
 
-1. **Push the kernel package to TWRP's `/tmp/` directory:**
-   ```bash
-   adb push linux-nabu-6.xx.xx-aarch64.pkg.tar.zst /tmp/
-   ```
+**1. Push the package to TWRP's `/tmp/` directory:**
 
-2. **Open an ADB shell, mount the partitions, and install:**
-   ```bash
-   adb shell
+```bash
+adb push linux-nabu-6.xx.xx-aarch64.pkg.tar.xz /tmp/
+```
 
-   # Mount rootfs, EFI partition, and virtual filesystems
-   mount /dev/block/by-name/linux /linux
-   mount /dev/block/by-name/esp /linux/boot/efi
-   mount -t proc proc /linux/proc
-   mount -t sysfs sys /linux/sys
-   mount --bind /dev /linux/dev
+**2. Open an ADB shell, mount the partitions, and install inside the chroot:**
 
-   # Copy package and install inside chroot
-   cp /tmp/linux-nabu-*.pkg.tar.zst /linux/tmp/
-   env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux pacman -U /tmp/linux-nabu-6.xx.xx-aarch64.pkg.tar.zst
-   ```
+```bash
+adb shell
 
-3. **Unmount and reboot:**
-   ```bash
-   umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
-   reboot
-   ```
+# Mount rootfs, EFI partition, and virtual filesystems
+mount /dev/block/by-name/linux /linux
+mount /dev/block/by-name/esp /linux/boot/efi
+mount -t proc proc /linux/proc
+mount -t sysfs sys /linux/sys
+mount --bind /dev /linux/dev
+
+# Copy package and install inside chroot
+cp /tmp/linux-nabu-*.pkg.tar.xz /linux/tmp/
+env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux pacman -U /tmp/linux-nabu-6.xx.xx-aarch64.pkg.tar.xz
+```
+
+**3. Unmount and reboot:**
+
+```bash
+umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
+reboot
+```
+
+---
+
+## Troubleshooting
+
+For solutions to common issues (such as boot loops after updates, Wi-Fi MAC address fixes, or recovering from a locked emergency console), see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 ---
 
