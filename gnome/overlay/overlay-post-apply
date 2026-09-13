@@ -14,3 +14,4 @@ fi
 if [ -f /etc/systemd/system/nabu-tablet-mode.service ] || [ -f /usr/lib/systemd/system/nabu-tablet-mode.service ]; then
     systemctl enable nabu-tablet-mode.service 2>/dev/null || true
 fi
+
