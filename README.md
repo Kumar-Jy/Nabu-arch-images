@@ -12,6 +12,36 @@
 
 ---
 
+## Hardware Support Status
+
+| Category | Hardware Feature | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate |
+| **Touch** | Capacitive Multi-touch | ✅ Working | 10-point multi-touch supported out of the box |
+| **Graphics** | 3D GPU Acceleration (Adreno 640) | ✅ Working | Mesa Turnip (Vulkan 1.3) & Freedreno (OpenGL 4.6) |
+| **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 stateful decode (H.264, HEVC, VP9) |
+| **Audio** | Quad Stereo Speakers | ✅ Working | ALSA UCM + PipeWire (WCD9340 + WSA8810 smart amps) |
+| **Microphone** | Built-in Mic Array | ✅ Working | Clear audio recording via PipeWire |
+| **Camera (Rear)** | 13MP OmniVision OV13B10 | ✅ Working | `camera-studio` / libcamera with VCM autofocus |
+| **Camera (Front)** | 8MP OmniVision OV8856 | ✅ Working | `camera-studio` with upright orientation correction |
+| **Flash / Torch** | Dual Rear LED Flash | ⚠️ Partial | Controlled via sysfs flash node |
+| **Wireless** | Wi-Fi 5 (802.11ac 2.4/5GHz) | ✅ Working | Qualcomm WCN3990 via NetworkManager |
+| **Bluetooth** | Bluetooth 5.0 | ✅ Working | Qualcomm WCN3990 via BlueZ |
+| **Sensors** | Accelerometer & Gyroscope | ✅ Working | SLPI/SSC via FastRPC & `iio-sensor-proxy` |
+| **Screen Rotation** | Automatic Screen Rotation | ✅ Working | Handled via `nabu-tablet-mode` daemon |
+| **Auto-Brightness** | Ambient Light Sensor (ALS) | ✅ Working | Native `gsd-power` on GNOME, `nabu-autobrightness` on Plasma |
+| **Touch Keyboard** | Virtual Touch Keyboard | ✅ Working | Built-in `oskb` with resize presets & arrow navigation |
+| **Stylus** | Xiaomi Smart Pen | ✅ Working | Stylus tap and pointer events |
+| **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
+| **Battery & Power** | Battery Telemetry & Charging | ✅ Working | Battery percentage via `upower-nncc`, USB-PD / QC charging |
+| **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
+| **USB** | USB Type-C 2.0 & OTG | ✅ Working | Flash drives, mice, keyboards, hubs supported |
+| **External Display** | USB DisplayLink Output | ✅ Working | Supported with DisplayLink docks (`displaylink` + `evdi`) |
+| **External Display** | USB-C DisplayPort Alt-Mode | ❌ Not Supported | Hardware limitation (SoC USB lines lack DP routing) |
+| **DRM** | Widevine L1 (HD Streaming) | ❌ Not Supported | Widevine L3 software works; L1 requires Android TEE |
+
+---
+
 ## Sensors (SLPI/SSC) and persist
 
 The image ships the complete SLPI sensor userspace out of the box:
