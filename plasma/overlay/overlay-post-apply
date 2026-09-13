@@ -18,11 +18,3 @@ if [ -f /usr/lib/systemd/user/nabu-autobrightness.service ]; then
     systemctl --global enable nabu-autobrightness.service 2>/dev/null || true
 fi
 
-# Redirect plasma-camera shortcuts directly to camera-studio
-if [ -f /usr/bin/camera-studio ]; then
-    cat > /usr/bin/plasma-camera << 'EOF'
-#!/bin/sh
-exec /usr/bin/camera-studio "$@"
-EOF
-    chmod +x /usr/bin/plasma-camera
-fi

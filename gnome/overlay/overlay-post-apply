@@ -15,7 +15,3 @@ if [ -f /etc/systemd/system/nabu-tablet-mode.service ] || [ -f /usr/lib/systemd/
     systemctl enable nabu-tablet-mode.service 2>/dev/null || true
 fi
 
-# Enable nabu-autobrightness user service globally for graphical sessions
-if [ -f /usr/lib/systemd/user/nabu-autobrightness.service ]; then
-    systemctl --global enable nabu-autobrightness.service 2>/dev/null || true
-fi
