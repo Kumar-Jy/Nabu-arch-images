@@ -139,3 +139,27 @@ ip link show wlan0
   findmnt /boot/efi
   ls -l /boot/efi/EFI/arch/
   ```
+
+---
+
+## Slow updates / disk space taken by generic linux-firmware
+
+Arch Linux ARM splits `linux-firmware` into vendor packages (`intel`, `nvidia`, `amdgpu`, etc.), which consume ~800 MB and take long to download on `pacman -Syu`. The tablet only requires `linux-firmware-xiaomi-nabu` and `linux-firmware-atheros` (for Wi-Fi/Bluetooth).
+
+To prevent pacman from downloading these and to reclaim storage without reinstalling:
+
+```bash
+sudo nano /etc/pacman.conf
+```
+
+Add or update under `[options]`:
+```ini
+IgnorePkg = linux-nabu linux-nabu-headers linux-firmware linux-firmware-intel linux-firmware-nvidia linux-firmware-amdgpu linux-firmware-amd linux-firmware-mediatek linux-firmware-broadcom linux-firmware-realtek linux-firmware-radeon linux-firmware-cirrus linux-firmware-ti linux-firmware-other
+
+NoExtract = usr/lib/firmware/intel/* usr/lib/firmware/nvidia/* usr/lib/firmware/amdgpu/* usr/lib/firmware/mediatek/* usr/lib/firmware/radeon/* usr/lib/firmware/cirrus/* usr/lib/firmware/brcm/* usr/lib/firmware/ti-connectivity/* usr/lib/firmware/i915/*
+```
+
+Then remove existing unused blobs:
+```bash
+sudo rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}
+```

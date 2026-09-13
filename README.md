@@ -24,6 +24,10 @@ The image ships the complete SLPI sensor userspace out of the box:
 - `iio-sensor-proxy` exposes SSC over D-Bus
   (`HasAccelerometer`/`HasAmbientLight` true, `net.hadess.SensorProxy`).
 - `nabu-tablet-mode` drives GNOME/KDE automatic screen rotation.
+- `nabu-autobrightness` provides intelligent ambient light auto-brightness with smooth human perceptual curves.
+- `oskb` provides a full-featured on-screen touch keyboard with navigation arrows, function keys, and resize presets.
+- `camera-studio` provides hardware-accelerated camera capture with autofocus, real-time color grading, and auto-rotation.
+- `system-monitor` provides real-time hardware telemetry and Adreno GPU monitoring.
 
 The Android `persist` partition (`PARTLABEL=persist`) is mounted **read-only**
 under `/mnt/vendor/persist` and is never written by the sensor stack, so a
