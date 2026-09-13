@@ -113,8 +113,48 @@ ip link show wlan0
 
 ## Linux won't boot
 
-- If boot hangs during the Wi-Fi MAC setup, the installed `nabu-pmac` service is
-  the old unbounded version. Repair it from TWRP with **Option C** above.
+### Hang during Wi-Fi MAC setup
+If boot hangs during the Wi-Fi MAC setup, the installed `nabu-pmac` service is
+the old unbounded version. Repair it from TWRP with **Option C** above.
+
+### Boot timeout on `/dev/disk/by-partlabel/linux` (Root account locked)
+If the system hangs at `Timed out waiting for device /dev/disk/by-partlabel/linux` with `Cannot open access to console, the root account is locked` after running `sudo pacman -Syu`:
+
+This occurs on older images if `systemd-ukify` was updated and overwritten, stripping the Device Tree from the UKI, or if `acpi=off` is missing from the kernel command line (causing the internal UFS storage controller to stall waiting for SCM).
+
+To recover via TWRP:
+
+```bash
+adb shell
+
+# 1. Mount rootfs and EFI partition
+mount /dev/block/by-name/linux /linux
+mount /dev/block/by-name/esp /linux/boot/efi
+
+# 2. Add acpi=off so the UFS storage controller initializes properly
+grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
+
+# 3. Ensure persistent DeviceTree configuration
+mkdir -p /linux/etc/kernel
+cat << 'EOF' > /linux/etc/kernel/uki.conf
+[UKI]
+DeviceTree=/boot/dtb-linux-nabu
+EOF
+
+# 4. Remove autodetect/microcode and bundle shadow/passwd for emergency login
+sed -i -e 's/\bautodetect\b//g' -e 's/\bmicrocode\b//g' /linux/etc/mkinitcpio.conf
+grep -q '^FILES=' /linux/etc/mkinitcpio.conf && sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /linux/etc/mkinitcpio.conf
+
+# 5. Bind mounts and rebuild the UKI
+mount -t proc proc /linux/proc
+mount -t sysfs sys /linux/sys
+mount --bind /dev /linux/dev
+env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux mkinitcpio -P
+
+# 6. Unmount and reboot
+umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
+reboot
+```
 
 ---
 

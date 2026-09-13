@@ -90,7 +90,8 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 ---
 
 ## Troubleshooting
-[TROUBLESHOOTING](TROUBLESHOOTING.md).
+
+For solutions to common issues (such as boot loops after updates, Wi-Fi MAC address fixes, or recovering from a locked emergency console), see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 ---
 
@@ -110,7 +111,7 @@ If you built your own kernel package:
 # 1. Build your own package (bump pkgver / pkgrel on EVERY build!)
 makepkg
 # 2. Install it directly
-sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.xz
+sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.zst
 ```
 
 > pacman decides "is this an update?" using only `pkgver`/`pkgrel`, never the kernel
@@ -152,6 +153,37 @@ Verify the UKI was produced:
 findmnt /boot/efi
 ls -l /boot/efi/EFI/arch/
 ```
+
+### Offline Kernel Install / Recovery via TWRP
+
+If Linux cannot boot or you want to install/update a kernel package (`.pkg.tar.zst`) completely offline using TWRP:
+
+1. **Push the kernel package to TWRP's `/tmp/` directory:**
+   ```bash
+   adb push linux-nabu-6.xx.xx-aarch64.pkg.tar.zst /tmp/
+   ```
+
+2. **Open an ADB shell, mount the partitions, and install:**
+   ```bash
+   adb shell
+
+   # Mount rootfs, EFI partition, and virtual filesystems
+   mount /dev/block/by-name/linux /linux
+   mount /dev/block/by-name/esp /linux/boot/efi
+   mount -t proc proc /linux/proc
+   mount -t sysfs sys /linux/sys
+   mount --bind /dev /linux/dev
+
+   # Copy package and install inside chroot
+   cp /tmp/linux-nabu-*.pkg.tar.zst /linux/tmp/
+   env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux pacman -U /tmp/linux-nabu-6.xx.xx-aarch64.pkg.tar.zst
+   ```
+
+3. **Unmount and reboot:**
+   ```bash
+   umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
+   reboot
+   ```
 
 ---
 
