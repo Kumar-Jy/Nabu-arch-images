@@ -378,7 +378,7 @@ jobs:
             sleep 5
           done
           pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts vulkan-freedreno flatpak gnome-software loupe gnome-text-editor firefox
-          pacman -S --noconfirm nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor
+          pacman -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor
           EOF
 
       - name: Apply DE overlay
