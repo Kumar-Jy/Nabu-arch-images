@@ -143,6 +143,9 @@ The UKI is regenerated automatically by the pacman hook for any package named
 sudo /usr/libexec/nabu/uki-regenerate
 ```
 
+> Tablet will not boot after an update? See
+> [Tablet does not boot after a kernel update](TROUBLESHOOTING.md#tablet-does-not-boot-after-a-kernel-update).
+
 ### Offline Kernel Install / Recovery via TWRP
 
 If Linux cannot boot or you want to install/update a kernel package (`.pkg.tar.xz`) completely offline using TWRP:

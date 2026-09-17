@@ -117,68 +117,67 @@ ip link show wlan0
 If boot hangs during the Wi-Fi MAC setup, the installed `nabu-pmac` service is
 the old unbounded version. Repair it from TWRP with **Option C** above.
 
-### Boot timeout on `/dev/disk/by-partlabel/linux` (Root account locked)
-If the system hangs at `Timed out waiting for device /dev/disk/by-partlabel/linux` with `Cannot open access to console, the root account is locked` after running `sudo pacman -Syu`:
+### Tablet does not boot after a kernel update
 
-This occurs on older images if `systemd-ukify` was updated and overwritten, stripping the Device Tree from the UKI, or if `acpi=off` is missing from the kernel command line (causing the internal UFS storage controller to stall waiting for SCM).
+The UKI no longer matches the installed kernel. On older images either
+`uki-regenerate` picked a stale `*.old`/`*.safe` module tree (the new kernel got
+no UKI and `arch-linux-nabu-old.efi` is a copy of the same stale image), or
+`systemd-ukify` was replaced and stripped the Device Tree / `acpi=off`.
 
-To recover via TWRP:
+Symptoms: stuck at rEFInd or a black screen, or `Timed out waiting for device
+/dev/disk/by-partlabel/linux` with `the root account is locked`.
+
+Fix from TWRP. Run `ls /linux/usr/lib/modules` and use the real kernel version
+(the one not ending in `.old`/`.safe`), e.g. `6.14.11-1-nabu`:
 
 ```bash
 adb shell
-
-# 1. Mount rootfs and EFI partition
 mount /dev/block/by-name/linux /linux
 mount /dev/block/by-name/esp /linux/boot/efi
 
-# 2. Add acpi=off so the UFS storage controller initializes properly
-grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
+ls /linux/usr/lib/modules
 
-# 3. Ensure persistent DeviceTree configuration
-mkdir -p /linux/etc/kernel
-cat << 'EOF' > /linux/etc/kernel/uki.conf
-[UKI]
-DeviceTree=/boot/dtb-linux-nabu
-EOF
+sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-6.14.11-1-nabu"|' \
+  /linux/etc/mkinitcpio.d/linux-nabu.preset
 
-# 4. Remove autodetect/microcode and bundle shadow/passwd for emergency login
 sed -i -e 's/\bautodetect\b//g' -e 's/\bmicrocode\b//g' /linux/etc/mkinitcpio.conf
-grep -q '^FILES=' /linux/etc/mkinitcpio.conf && sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /linux/etc/mkinitcpio.conf
+printf '[UKI]\nDeviceTree=/boot/dtb-linux-nabu\n' > /linux/etc/kernel/uki.conf
+grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf \
+  || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
 
-# 5. Bind mounts and rebuild the UKI
 mount -t proc proc /linux/proc
 mount -t sysfs sys /linux/sys
 mount --bind /dev /linux/dev
 env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux mkinitcpio -P
 
-# 6. Unmount and reboot
 umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
 reboot
+```
+
+`mkinitcpio` must finish without errors — a "successful" update that will not
+boot usually means this step failed silently.
+
+If it still boots, run the same fix online and update the helper so the next
+kernel update is safe:
+
+```bash
+sudo sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-6.14.11-1-nabu"|' \
+  /etc/mkinitcpio.d/linux-nabu.preset
+sudo mkinitcpio -P
+sudo curl -fL -o /usr/libexec/nabu/uki-regenerate \
+  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/main/base/overlay/usr/libexec/nabu/uki-regenerate
+sudo chmod 755 /usr/libexec/nabu/uki-regenerate
 ```
 
 ---
 
 ## Kernel update not applied / UKI not regenerated
 
-- After `sudo pacman -Syu`, check the running kernel with `uname -r`. The
-  `linux-nabu` package rebuilds the UKI automatically on install/upgrade. If the
-  UKI is missing or stale, regenerate it with the fallback handler:
-
-  ```bash
-  sudo /usr/libexec/nabu/uki-regenerate
-  ```
-
-- If you installed a **custom/local kernel** and pacman reports *"up to date"*,
-  it decides this using only `pkgver`/`pkgrel` — never the kernel version
-  string. Bump `pkgver` (or `pkgrel`) on every build, otherwise the install is
-  skipped and the UKI is not regenerated.
-
-- Verify the UKI was produced:
-
-  ```bash
-  findmnt /boot/efi
-  ls -l /boot/efi/EFI/arch/
-  ```
+- Check `uname -r`. The `linux-nabu` package rebuilds the UKI on install; force
+  a rebuild with `sudo /usr/libexec/nabu/uki-regenerate`.
+- pacman compares only `pkgver`/`pkgrel`, never the kernel version string. Bump
+  one on every custom build, or the install is skipped and the UKI is not rebuilt.
+- Verify with `ls -l /boot/efi/EFI/arch/`.
 
 ---
 

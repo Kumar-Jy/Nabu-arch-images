@@ -4,11 +4,52 @@ set -euo pipefail
 # Fallback handler for regenerating the nabu UKI. Triggered by the pacman
 # hook; usable directly after installing any (even custom/local) kernel.
 
-kernver="${1:-$(ls /usr/lib/modules/ 2>/dev/null | sort -V | tail -1)}"
+# Pick the kernel to build a UKI for. An explicit argument wins. Otherwise ask
+# pacman which module tree the installed linux-nabu package owns, so custom
+# kernels are never compared to distro ones with `sort -V`. The *.old/*.safe
+# backups the kernel package leaves behind are always skipped.
+resolve_kernver() {
+    if [ -n "${1:-}" ]; then
+        printf '%s\n' "$1"
+        return 0
+    fi
+
+    local p v
+    for p in $(pacman -Qq 'linux-nabu*' 2>/dev/null || true); do
+        v=$(pacman -Qlq "$p" 2>/dev/null \
+            | awk -F/ '/\/usr\/lib\/modules\/[^/]+\/modules\.dep$/ {print $5; exit}' || true)
+        case "$v" in
+            ''|*.old|*.safe) continue ;;
+        esac
+        if [ -f "/boot/vmlinuz-${v}" ] || [ -f "/boot/vmlinux-${v}" ]; then
+            printf '%s\n' "$v"
+            return 0
+        fi
+    done
+
+    # Last resort: newest module tree that still has a kernel image.
+    local d
+    for d in $(ls -1dt /usr/lib/modules/*/ 2>/dev/null || true); do
+        v=${d%/}
+        v=${v##*/}
+        case "$v" in
+            *.old|*.safe) continue ;;
+        esac
+        if [ -f "/boot/vmlinuz-${v}" ] || [ -f "/boot/vmlinux-${v}" ]; then
+            printf '%s\n' "$v"
+            return 0
+        fi
+    done
+}
+
+kernver="$(resolve_kernver "${1:-}")"
 if [ -z "$kernver" ]; then
     echo "No kernel version found" >&2
     exit 1
 fi
+
+kimage="/boot/vmlinuz-${kernver}"
+[ -f "$kimage" ] || kimage="/boot/vmlinux-${kernver}"
 
 echo "Regenerating UKI for kernel ${kernver}..."
 
@@ -31,7 +72,7 @@ cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET
 # mkinitcpio preset file for the 'linux-nabu' package
 
 ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="/boot/vmlinuz-${kernver}"
+ALL_kver="${kimage}"
 
 PRESETS=('default')
 
@@ -71,14 +112,6 @@ if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     fi
 fi
 
-# Preserve the current (previous kernel's) UKI as a fallback so the last
-# known-good kernel + DTB stays bootable after an upgrade.
-# rEFInd auto-detects both UKIs in EFI/arch (no config change needed).
-if [ -f "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
-    cp -f "$ESP/EFI/arch/arch-linux-nabu.efi" "$ESP/EFI/arch/arch-linux-nabu-old.efi"
-    echo "Preserved previous UKI as arch-linux-nabu-old.efi"
-fi
-
 # Re-link any preserved old module directories so WiFi/BT/touch/sound work in fallback
 for olddir in /usr/lib/modules/*.old /usr/lib/modules/*.safe; do
     [ -d "$olddir" ] || continue
@@ -91,6 +124,27 @@ for olddir in /usr/lib/modules/*.old /usr/lib/modules/*.safe; do
 done
 
 mkdir -p "$ESP/EFI/arch"
-mkinitcpio -P 2>&1 | grep -v 'gzip: stdout: Broken pipe' || true
+
+# Snapshot the current UKI before rebuilding so a failed build never overwrites
+# the known-good fallback. rEFInd auto-detects both UKIs in EFI/arch.
+prev_uki=""
+cleanup_prev_uki() { [ -z "$prev_uki" ] || rm -f "$prev_uki"; }
+trap cleanup_prev_uki EXIT
+if [ -f "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
+    prev_uki="$(mktemp)"
+    cp -f "$ESP/EFI/arch/arch-linux-nabu.efi" "$prev_uki"
+fi
+
+# Build. With pipefail (set at the top) a failed build aborts the script instead
+# of printing success and leaving the stale UKI in place. The grep only drops a
+# benign message and its own exit status is neutralised so it cannot hide a
+# mkinitcpio failure.
+mkinitcpio -P 2>&1 | { grep -v 'gzip: stdout: Broken pipe' || true; }
+
+# Only now, after a successful build, is it safe to keep the previous kernel.
+if [ -n "$prev_uki" ]; then
+    cp -f "$prev_uki" "$ESP/EFI/arch/arch-linux-nabu-old.efi"
+    echo "Preserved previous UKI as arch-linux-nabu-old.efi"
+fi
 
 echo "UKI regeneration complete for kernel ${kernver}"
