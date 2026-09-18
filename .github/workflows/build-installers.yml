@@ -103,7 +103,6 @@ jobs:
           sed -i "s/#ParallelDownloads/ParallelDownloads/g" /etc/pacman.conf
           sed -i "s/#DisableSandboxFilesystem/DisableSandboxFilesystem/g" /etc/pacman.conf
           sed -i "s/#DisableSandboxSyscalls/DisableSandboxSyscalls/g" /etc/pacman.conf
-          sed -i '/^#NoExtract/c\NoExtract = usr/lib/firmware/intel/* usr/lib/firmware/nvidia/* usr/lib/firmware/amdgpu/* usr/lib/firmware/mediatek/* usr/lib/firmware/radeon/* usr/lib/firmware/cirrus/* usr/lib/firmware/brcm/* usr/lib/firmware/ti-connectivity/* usr/lib/firmware/i915/*' /etc/pacman.conf
           EOF
 
       - name: Add nabu repo

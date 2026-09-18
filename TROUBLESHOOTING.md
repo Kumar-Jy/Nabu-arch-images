@@ -127,46 +127,44 @@ no UKI and `arch-linux-nabu-old.efi` is a copy of the same stale image), or
 Symptoms: stuck at rEFInd or a black screen, or `Timed out waiting for device
 /dev/disk/by-partlabel/linux` with `the root account is locked`.
 
-Fix from TWRP. Run `ls /linux/usr/lib/modules` and use the real kernel version
-(the one not ending in `.old`/`.safe`), e.g. `6.14.11-1-nabu`:
+#### Fix from TWRP (Offline)
 
 ```bash
 adb shell
 mount /dev/block/by-name/linux /linux
 mount /dev/block/by-name/esp /linux/boot/efi
-
-ls /linux/usr/lib/modules
-
-sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-6.14.11-1-nabu"|' \
-  /linux/etc/mkinitcpio.d/linux-nabu.preset
-
-sed -i -e 's/\bautodetect\b//g' -e 's/\bmicrocode\b//g' /linux/etc/mkinitcpio.conf
-printf '[UKI]\nDeviceTree=/boot/dtb-linux-nabu\n' > /linux/etc/kernel/uki.conf
-grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf \
-  || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
-
 mount -t proc proc /linux/proc
 mount -t sysfs sys /linux/sys
 mount --bind /dev /linux/dev
-env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux mkinitcpio -P
 
+# 1. If nabu-boot-tools is installed, run automated repair:
+env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux /usr/bin/nabu-boot-repair
+
+# Or manual repair if nabu-boot-tools is not yet installed:
+# Check installed kernel: ls /linux/usr/lib/modules (e.g. 6.14.11-1-nabu)
+# sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-<kernel-version>"|' /linux/etc/mkinitcpio.d/linux-nabu.preset
+# sed -i -e 's/\bautodetect\b//g' -e 's/\bmicrocode\b//g' /linux/etc/mkinitcpio.conf
+# printf '[UKI]\nDeviceTree=/boot/dtb-linux-nabu\n' > /linux/etc/kernel/uki.conf
+# grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
+# grep -q 'fw_devlink=permissive' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ fw_devlink=permissive/' /linux/etc/cmdline.d/root.conf
+# env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux mkinitcpio -P
+
+# 2. Unmount and reboot
 umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
 reboot
 ```
 
-`mkinitcpio` must finish without errors — a "successful" update that will not
-boot usually means this step failed silently.
+#### Fix Online (if tablet boots)
 
-If it still boots, run the same fix online and update the helper so the next
-kernel update is safe:
+Install `nabu-boot-tools` from the `[nabu]` repo, which automatically configures your boot parameters, updates `uki-regenerate`, and verifies the UKI:
 
 ```bash
-sudo sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-6.14.11-1-nabu"|' \
-  /etc/mkinitcpio.d/linux-nabu.preset
-sudo mkinitcpio -P
-sudo curl -fL -o /usr/libexec/nabu/uki-regenerate \
-  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/main/base/overlay/usr/libexec/nabu/uki-regenerate
-sudo chmod 755 /usr/libexec/nabu/uki-regenerate
+sudo pacman -Sy --overwrite '*' nabu-boot-tools
+```
+
+You can also re-run the repair at any time:
+```bash
+sudo nabu-boot-repair
 ```
 
 ---
@@ -181,24 +179,20 @@ sudo chmod 755 /usr/libexec/nabu/uki-regenerate
 
 ---
 
-## Slow updates / disk space taken by generic linux-firmware
+## Removing unused generic PC firmware packages
 
-Arch Linux ARM splits `linux-firmware` into vendor packages (`intel`, `nvidia`, `amdgpu`, etc.), which consume ~800 MB and take long to download on `pacman -Syu`. The tablet only requires `linux-firmware-xiaomi-nabu` and `linux-firmware-atheros` (for Wi-Fi/Bluetooth).
+The tablet only requires `linux-firmware-xiaomi-nabu` (device-specific DSP/GPU/touch blobs) and `linux-firmware-atheros` (Wi-Fi/Bluetooth blobs) along with `linux-firmware-whence`.
 
-To prevent pacman from downloading these and to reclaim storage without reinstalling:
+`linux-nabu` and `linux-firmware-xiaomi-nabu` depend directly on `linux-firmware-whence` and `linux-firmware-atheros`, avoiding the generic `linux-firmware` meta-package (which pulls ~850 MB of Intel, Nvidia, AMD, Mediatek, Broadcom, etc. firmware).
+
+If upgrading an existing installation that still has legacy generic PC firmware packages installed, remove them to reclaim ~850 MB of storage:
 
 ```bash
-sudo nano /etc/pacman.conf
+sudo pacman -Rdd linux-firmware linux-firmware-intel linux-firmware-nvidia linux-firmware-amdgpu linux-firmware-amd linux-firmware-mediatek linux-firmware-broadcom linux-firmware-realtek linux-firmware-radeon linux-firmware-cirrus linux-firmware-ti linux-firmware-other
+sudo pacman -S --needed linux-firmware-whence linux-firmware-atheros
 ```
 
-Add or update under `[options]`:
+In `/etc/pacman.conf`, `IgnorePkg` only needs device kernel packages:
 ```ini
-IgnorePkg = linux-nabu linux-nabu-headers linux-firmware linux-firmware-intel linux-firmware-nvidia linux-firmware-amdgpu linux-firmware-amd linux-firmware-mediatek linux-firmware-broadcom linux-firmware-realtek linux-firmware-radeon linux-firmware-cirrus linux-firmware-ti linux-firmware-other
-
-NoExtract = usr/lib/firmware/intel/* usr/lib/firmware/nvidia/* usr/lib/firmware/amdgpu/* usr/lib/firmware/mediatek/* usr/lib/firmware/radeon/* usr/lib/firmware/cirrus/* usr/lib/firmware/brcm/* usr/lib/firmware/ti-connectivity/* usr/lib/firmware/i915/*
-```
-
-Then remove existing unused blobs:
-```bash
-sudo rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}
+IgnorePkg = linux-nabu linux-nabu-headers
 ```

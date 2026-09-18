@@ -4,10 +4,6 @@ set -euo pipefail
 # Fallback handler for regenerating the nabu UKI. Triggered by the pacman
 # hook; usable directly after installing any (even custom/local) kernel.
 
-# Pick the kernel to build a UKI for. An explicit argument wins. Otherwise ask
-# pacman which module tree the installed linux-nabu package owns, so custom
-# kernels are never compared to distro ones with `sort -V`. The *.old/*.safe
-# backups the kernel package leaves behind are always skipped.
 resolve_kernver() {
     if [ -n "${1:-}" ]; then
         printf '%s\n' "$1"
@@ -15,9 +11,18 @@ resolve_kernver() {
     fi
 
     local p v
-    for p in $(pacman -Qq 'linux-nabu*' 2>/dev/null || true); do
+    # 1. Ask pacman which module tree the installed linux-nabu package owns
+    for p in $(pacman -Qq 2>/dev/null | grep -E '^linux-nabu' || true); do
+        # Method A: module metadata tracked by pacman (modules.builtin or modules.order)
         v=$(pacman -Qlq "$p" 2>/dev/null \
-            | awk -F/ '/\/usr\/lib\/modules\/[^/]+\/modules\.dep$/ {print $5; exit}' || true)
+            | awk -F/ '/\/usr\/lib\/modules\/[^\/]+\/modules\.(builtin|order)$/ {print $5; exit}' || true)
+
+        # Method B: boot kernel image tracked by pacman
+        if [ -z "$v" ]; then
+            v=$(pacman -Qlq "$p" 2>/dev/null \
+                | awk -F/ '/\/boot\/vmlinu[zx]-[^\/]+$/ && $3 !~ /^vmlinu[zx]-linux-nabu$/ {sub("^vmlinu[zx]-", "", $3); print $3; exit}' || true)
+        fi
+
         case "$v" in
             ''|*.old|*.safe) continue ;;
         esac
@@ -27,9 +32,9 @@ resolve_kernver() {
         fi
     done
 
-    # Last resort: newest module tree that still has a kernel image.
+    # 2. Fallback: newest module tree that still has a kernel image, sorted by version descending
     local d
-    for d in $(ls -1dt /usr/lib/modules/*/ 2>/dev/null || true); do
+    for d in $(ls -1d /usr/lib/modules/*/ 2>/dev/null | sort -V -r || true); do
         v=${d%/}
         v=${v##*/}
         case "$v" in
@@ -40,16 +45,37 @@ resolve_kernver() {
             return 0
         fi
     done
+
+    # 3. Last resort fallback: check where /boot/vmlinuz-linux-nabu symlink points
+    if [ -L "/boot/vmlinuz-linux-nabu" ]; then
+        local target
+        target="$(readlink -f /boot/vmlinuz-linux-nabu 2>/dev/null || true)"
+        v="${target##*/vmlinuz-}"
+        case "$v" in
+            ''|*.old|*.safe|linux-nabu) ;;
+            *)
+                if [ -d "/usr/lib/modules/${v}" ]; then
+                    printf '%s\n' "$v"
+                    return 0
+                fi
+                ;;
+        esac
+    fi
 }
 
 kernver="$(resolve_kernver "${1:-}")"
 if [ -z "$kernver" ]; then
-    echo "No kernel version found" >&2
+    echo "ERROR: No valid kernel version found" >&2
     exit 1
 fi
 
 kimage="/boot/vmlinuz-${kernver}"
 [ -f "$kimage" ] || kimage="/boot/vmlinux-${kernver}"
+
+if [ ! -f "$kimage" ]; then
+    echo "ERROR: Kernel image not found at $kimage" >&2
+    exit 1
+fi
 
 echo "Regenerating UKI for kernel ${kernver}..."
 
@@ -65,6 +91,9 @@ else
            /etc/cmdline.d/root.conf
     if ! grep -q 'acpi=off' /etc/cmdline.d/root.conf; then
         sed -i 's/$/ acpi=off/' /etc/cmdline.d/root.conf
+    fi
+    if ! grep -q 'fw_devlink=permissive' /etc/cmdline.d/root.conf; then
+        sed -i 's/$/ fw_devlink=permissive/' /etc/cmdline.d/root.conf
     fi
 fi
 
@@ -94,6 +123,11 @@ if [ ! -f "$dtb_target" ] && [ -f "/boot/dtb-linux-nabu" ]; then
     dtb_target="/boot/dtb-linux-nabu"
 fi
 
+if [ ! -f "$dtb_target" ]; then
+    echo "ERROR: Device Tree file not found at $dtb_target" >&2
+    exit 1
+fi
+
 if grep -q '^DeviceTree=' /etc/kernel/uki.conf; then
     sed -i "s|^DeviceTree=.*|DeviceTree=${dtb_target}|" /etc/kernel/uki.conf
 elif grep -q '^\\[UKI\\]' /etc/kernel/uki.conf; then
@@ -107,7 +141,8 @@ if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     echo "ESP not mounted at $ESP, attempting mount..."
     mkdir -p "$ESP"
     if ! mount PARTLABEL=esp "$ESP" 2>/dev/null \
-        && ! mount /dev/disk/by-partlabel/esp "$ESP" 2>/dev/null; then
+        && ! mount /dev/disk/by-partlabel/esp "$ESP" 2>/dev/null \
+        && ! mount /dev/block/by-name/esp "$ESP" 2>/dev/null; then
         echo "WARNING: could not mount ESP at $ESP; verify the output UKI path" >&2
     fi
 fi
@@ -126,22 +161,35 @@ done
 mkdir -p "$ESP/EFI/arch"
 
 # Snapshot the current UKI before rebuilding so a failed build never overwrites
-# the known-good fallback. rEFInd auto-detects both UKIs in EFI/arch.
+# the known-good fallback. If mkinitcpio fails, the trap automatically restores
+# the snapshot back to arch-linux-nabu.efi so the device stays bootable.
 prev_uki=""
-cleanup_prev_uki() { [ -z "$prev_uki" ] || rm -f "$prev_uki"; }
+cleanup_prev_uki() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ] && [ -n "$prev_uki" ] && [ -f "$prev_uki" ]; then
+        echo "WARNING: UKI generation failed (exit $exit_code). Restoring previous working UKI..." >&2
+        cp -f "$prev_uki" "$ESP/EFI/arch/arch-linux-nabu.efi"
+    fi
+    [ -z "$prev_uki" ] || rm -f "$prev_uki"
+}
 trap cleanup_prev_uki EXIT
+
 if [ -f "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
     prev_uki="$(mktemp)"
     cp -f "$ESP/EFI/arch/arch-linux-nabu.efi" "$prev_uki"
 fi
 
 # Build. With pipefail (set at the top) a failed build aborts the script instead
-# of printing success and leaving the stale UKI in place. The grep only drops a
-# benign message and its own exit status is neutralised so it cannot hide a
-# mkinitcpio failure.
+# of printing success and leaving the stale UKI in place.
 mkinitcpio -P 2>&1 | { grep -v 'gzip: stdout: Broken pipe' || true; }
 
-# Only now, after a successful build, is it safe to keep the previous kernel.
+# Verify that the generated UKI binary exists and is non-empty
+if [ ! -s "$ESP/EFI/arch/arch-linux-nabu.efi" ]; then
+    echo "ERROR: Generated UKI binary is missing or empty!" >&2
+    exit 1
+fi
+
+# Only now, after a verified successful build, is it safe to keep the previous kernel as fallback
 if [ -n "$prev_uki" ]; then
     cp -f "$prev_uki" "$ESP/EFI/arch/arch-linux-nabu-old.efi"
     echo "Preserved previous UKI as arch-linux-nabu-old.efi"

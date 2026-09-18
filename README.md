@@ -31,21 +31,21 @@
 | **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate |
 | **Touch** | Capacitive Multi-touch | ✅ Working | 10-point multi-touch supported out of the box |
 | **Graphics** | 3D GPU Acceleration (Adreno 640) | ✅ Working | Mesa Turnip (Vulkan 1.3) & Freedreno (OpenGL 4.6) |
-| **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 stateful decode (H.264, HEVC, VP9) |
-| **Audio** | Quad Stereo Speakers | ✅ Working | ALSA UCM + PipeWire (WCD9340 + WSA8810 smart amps) |
+| **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 decode (H.264, HEVC, VP9) via `iris-vaapi` with `mpv` and `vlc-nabu` |
+| **Audio** | Quad Stereo Speakers | ✅ Working | Cirrus Logic CS35L41 quad amplifiers, ALSA UCM + PipeWire |
 | **Microphone** | Built-in Mic Array | ✅ Working | Clear audio recording via PipeWire |
 | **Camera (Rear)** | 13MP OmniVision OV13B10 | ✅ Working | `camera-studio` / libcamera with VCM autofocus |
 | **Camera (Front)** | 8MP OmniVision OV8856 | ✅ Working | `camera-studio` with upright orientation correction |
-| **Flash / Torch** | Dual Rear LED Flash | ⚠️ Partial | Controlled via sysfs flash node |
-| **Wireless** | Wi-Fi 5 (802.11ac 2.4/5GHz) | ✅ Working | Qualcomm WCN3990 via NetworkManager |
+| **Flash / Torch** | Dual Rear LED Flash | ✅ Working | Hardware flash control via `nabu-torch` (GUI/CLI with intensity control) or sysfs |
+| **Wireless** | Wi-Fi 5 (802.11ac 2.4/5GHz) | ✅ Working | Qualcomm WCN3990 via NetworkManager with persistent MAC (`nabu-pmac`) |
 | **Bluetooth** | Bluetooth 5.0 | ✅ Working | Qualcomm WCN3990 via BlueZ |
 | **Sensors** | Accelerometer & Gyroscope | ✅ Working | SLPI/SSC via FastRPC & `iio-sensor-proxy` |
 | **Screen Rotation** | Automatic Screen Rotation | ✅ Working | Handled via `nabu-tablet-mode` daemon |
 | **Auto-Brightness** | Ambient Light Sensor (ALS) | ✅ Working | Native `gsd-power` on GNOME, `nabu-autobrightness` on Plasma |
-| **Touch Keyboard** | Virtual Touch Keyboard | ✅ Working | Built-in `oskb` with resize presets & arrow navigation |
-| **Stylus** | Xiaomi Smart Pen | ✅ Working | Stylus tap and pointer events |
+| **Stylus (Input)** | Xiaomi Smart Pen (Drawing & Input) | ✅ Working | 4096 pressure levels, tilt, hover, and dual barrel buttons via `NVTCapacitivePen` |
+| **Stylus (Charging)** | Wireless Magnetic Pen Charging | ⚠️ WIP | Requires IDT P9418 wireless charger driver (available in 6.17+ kernels) |
 | **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
-| **Battery & Power** | Battery Telemetry & Charging | ✅ Working | Battery percentage via `upower-nncc`, USB-PD / QC charging |
+| **Battery & Power** | Battery Telemetry & Charging | ✅ Working | PM8150B charger driver, battery gauge, 15W USB-PD and QC charging |
 | **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
 | **USB** | USB Type-C 2.0 & OTG | ✅ Working | Flash drives, mice, keyboards, hubs supported |
 | **External Display** | USB DisplayLink Output | ✅ Working | Supported with DisplayLink docks (`displaylink` + `evdi`) |
@@ -137,10 +137,11 @@ sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.xz
 > each new build.
 
 The UKI is regenerated automatically by the pacman hook for any package named
-`linux-nabu*`, including custom builds. To force a rebuild manually:
+`linux-nabu*`, including custom builds. To repair boot configuration or force a rebuild manually:
 
 ```bash
-sudo /usr/libexec/nabu/uki-regenerate
+sudo nabu-boot-repair
+# or directly: sudo /usr/libexec/nabu/uki-regenerate
 ```
 
 > Tablet will not boot after an update? See

@@ -33,7 +33,7 @@ if [ -f /etc/mkinitcpio.conf ]; then
   sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /etc/mkinitcpio.conf
 fi
 
-IGNORE_PKGS="linux-nabu linux-nabu-headers linux-firmware linux-firmware-intel linux-firmware-nvidia linux-firmware-amdgpu linux-firmware-amd linux-firmware-mediatek linux-firmware-broadcom linux-firmware-realtek linux-firmware-radeon linux-firmware-cirrus linux-firmware-ti linux-firmware-other"
+IGNORE_PKGS="linux-nabu linux-nabu-headers"
 sed -i '/^IgnorePkg/d' /etc/pacman.conf
 if grep -q '^#IgnorePkg' /etc/pacman.conf; then
     sed -i "/^#IgnorePkg/c\\IgnorePkg = ${IGNORE_PKGS}" /etc/pacman.conf
@@ -41,13 +41,7 @@ else
     sed -i "/^\\[options\\]/a\\IgnorePkg = ${IGNORE_PKGS}" /etc/pacman.conf
 fi
 
-NOEXTRACT_RULES="usr/lib/firmware/intel/* usr/lib/firmware/nvidia/* usr/lib/firmware/amdgpu/* usr/lib/firmware/mediatek/* usr/lib/firmware/radeon/* usr/lib/firmware/cirrus/* usr/lib/firmware/brcm/* usr/lib/firmware/ti-connectivity/* usr/lib/firmware/i915/*"
 sed -i '/^NoExtract/d' /etc/pacman.conf
-if grep -q '^#NoExtract' /etc/pacman.conf; then
-    sed -i "/^#NoExtract/c\\NoExtract = ${NOEXTRACT_RULES}" /etc/pacman.conf
-else
-    sed -i "/^\\[options\\]/a\\NoExtract = ${NOEXTRACT_RULES}" /etc/pacman.conf
-fi
 
 # Clean up unused firmware blobs to save disk space
 rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}
