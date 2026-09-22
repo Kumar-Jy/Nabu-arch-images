@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Update apt cache
         run: sudo apt-get update
-
+        
       - name: Install tools
         run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
 
@@ -162,33 +162,33 @@ jobs:
           pacman -S --noconfirm ukify
           EOF
 
-       - name: Install kernel and headers
-         run: |
-           if [ -n "${{ inputs.nightly_kernel_url }}" ]; then
-             sudo arch-chroot ./mountpoint bash -c "
-               set -e
-               echo \"Downloading nightly kernel from ${{ inputs.nightly_kernel_url }}\"
-               curl -fL --retry 3 -o /tmp/kernel-nightly.zip \"${{ inputs.nightly_kernel_url }}\"
-               unzip /tmp/kernel-nightly.zip -d /tmp/kernel-nightly
-               pacman -U --noconfirm /tmp/kernel-nightly/linux-nabu*.pkg.tar.* /tmp/kernel-nightly/linux-nabu-headers*.pkg.tar.*
-             "
-           elif [ -z "${{ inputs.kernel_version }}" ]; then
-             sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm linux-nabu linux-nabu-headers"
-           else
-             # Install a specific kernel version directly from the release URL.
-             # repo-add only tracks one version per name, so -S \"pkg=ver\" cannot
-             # resolve older versions; -U bypasses the repo database.
-             sudo arch-chroot ./mountpoint bash -c "
-               set -e
-               BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo
-               for pkg in linux-nabu linux-nabu-headers; do
-                 url=\$BASE/\${pkg}-${{ inputs.kernel_version }}-aarch64.pkg.tar.xz
-                 echo \"Downloading \$url\"
-                 curl -fL --retry 3 -o /tmp/\${pkg}.pkg.tar.xz \"\$url\"
-               done
-               pacman -U --noconfirm /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz
-             "
-           fi
+      - name: Install kernel and headers
+        run: |
+          if [ -n "${{ inputs.nightly_kernel_url }}" ]; then
+            sudo arch-chroot ./mountpoint bash -c "
+              set -e
+              echo \"Downloading nightly kernel from ${{ inputs.nightly_kernel_url }}\"
+              curl -fL --retry 3 -o /tmp/kernel-nightly.zip \"${{ inputs.nightly_kernel_url }}\"
+              unzip /tmp/kernel-nightly.zip -d /tmp/kernel-nightly
+              pacman -U --noconfirm /tmp/kernel-nightly/linux-nabu*.pkg.tar.* /tmp/kernel-nightly/linux-nabu-headers*.pkg.tar.*
+            "
+          elif [ -z "${{ inputs.kernel_version }}" ]; then
+            sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm linux-nabu linux-nabu-headers"
+          else
+            # Install a specific kernel version directly from the release URL.
+            # repo-add only tracks one version per name, so -S \"pkg=ver\" cannot
+            # resolve older versions; -U bypasses the repo database.
+            sudo arch-chroot ./mountpoint bash -c "
+              set -e
+              BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo
+              for pkg in linux-nabu linux-nabu-headers; do
+                url=\$BASE/\${pkg}-${{ inputs.kernel_version }}-aarch64.pkg.tar.xz
+                echo \"Downloading \$url\"
+                curl -fL --retry 3 -o /tmp/\${pkg}.pkg.tar.xz \"\$url\"
+              done
+              pacman -U --noconfirm /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz
+            "
+          fi
 
 
       - name: Install alsa ucm config
