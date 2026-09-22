@@ -19,7 +19,7 @@ on:
         required: false
 
 jobs:
-build-base-image:
+  build-base-image:
     name: Build base image
     runs-on: ubuntu-24.04-arm
     steps:
