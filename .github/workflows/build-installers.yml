@@ -19,15 +19,15 @@ on:
         required: false
 
 jobs:
-  build-base-image:
+build-base-image:
     name: Build base image
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Update apt cache
         run: sudo apt-get update
-        
+
       - name: Install tools
-        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz
+        run: sudo apt-get install -y git arch-install-scripts wget libarchive-tools e2fsprogs pigz unzip
 
       - name: Checkout repository
         uses: actions/checkout@v7
