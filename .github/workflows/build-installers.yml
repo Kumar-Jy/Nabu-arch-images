@@ -165,13 +165,11 @@ jobs:
       - name: Install kernel and headers
         run: |
           if [ -n "${{ inputs.nightly_kernel_url }}" ]; then
-            sudo arch-chroot ./mountpoint bash -c "
-              set -e
-              echo \"Downloading nightly kernel from ${{ inputs.nightly_kernel_url }}\"
-              curl -fL --retry 3 -o /tmp/kernel-nightly.zip \"${{ inputs.nightly_kernel_url }}\"
-              unzip /tmp/kernel-nightly.zip -d /tmp/kernel-nightly
-              pacman -U --noconfirm /tmp/kernel-nightly/linux-nabu*.pkg.tar.* /tmp/kernel-nightly/linux-nabu-headers*.pkg.tar.*
-            "
+            echo "Downloading nightly kernel from ${{ inputs.nightly_kernel_url }}"
+            curl -fL --retry 3 -o kernel-nightly.zip "${{ inputs.nightly_kernel_url }}"
+            unzip -o kernel-nightly.zip -d kernel-nightly
+            sudo cp kernel-nightly/linux-nabu*.pkg.tar.* ./mountpoint/tmp/
+            sudo arch-chroot ./mountpoint bash -c "pacman -U --noconfirm /tmp/linux-nabu*.pkg.tar.*"
           elif [ -z "${{ inputs.kernel_version }}" ]; then
             sudo arch-chroot ./mountpoint bash -c "pacman -S --noconfirm linux-nabu linux-nabu-headers"
           else
