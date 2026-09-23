@@ -8,6 +8,11 @@ on:
         type: string
         default: "6.14.11-8"
         required: false
+      nightly_kernel_url:
+        description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
+        type: string
+        default: ""
+        required: false
       trigger_builds:
         description: "Also trigger GNOME and Plasma builds after base"
         type: boolean
@@ -18,6 +23,11 @@ on:
         description: "Kernel version to install (e.g. 6.14.11-8); empty = latest in [nabu] repo"
         type: string
         default: "6.14.11-8"
+        required: false
+      nightly_kernel_url:
+        description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
+        type: string
+        default: ""
         required: false
 
 env:
@@ -64,6 +74,7 @@ jobs:
             -t ${{ steps.meta.outputs.tag }} \
             -t ${{ steps.meta.outputs.latest }} \
             --build-arg KERNEL_VERSION="${{ inputs.kernel_version }}" \
+            --build-arg NIGHTLY_KERNEL_URL="${{ inputs.nightly_kernel_url }}" \
             -f base/Containerfile \
             base/
 

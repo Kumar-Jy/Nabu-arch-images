@@ -3,7 +3,10 @@ FROM docker.io/menci/archlinuxarm:latest
 # Kernel to install: empty = latest linux-nabu in [nabu] repo;
 # set (e.g. 6.14.11-8) = install that exact kernel + headers from the
 # release URL directly (repo db only tracks the newest version per name).
+# NIGHTLY_KERNEL_URL (optional ZIP of kernel/headers pkg.tar.*) takes
+# precedence over both; empty = use KERNEL_VERSION / repo latest.
 ARG KERNEL_VERSION=
+ARG NIGHTLY_KERNEL_URL=
 
 LABEL containers.bootc="1"
 LABEL ostree.bootable="true"
@@ -29,7 +32,7 @@ RUN set -eux; \
         ostree skopeo \
         networkmanager bluez bluez-utils \
         sudo podman distrobox shadow libcap \
-        polkit; \
+        polkit unzip; \
     sed -i 's/^#\(.*UTF-8.*\)/\1/' /etc/locale.gen; \
     locale-gen; \
     echo "LANG=en_US.UTF-8" > /etc/locale.conf; \
@@ -47,7 +50,14 @@ RUN set -eux; \
     pacman-key --populate; \
     pacman-retry -R --noconfirm linux-aarch64 || true; \
     pacman-retry -Syu --noconfirm; \
-    if [ -n "$KERNEL_VERSION" ]; then \
+    if [ -n "$NIGHTLY_KERNEL_URL" ]; then \
+        echo "Installing nightly kernel from $NIGHTLY_KERNEL_URL"; \
+        curl -fL --retry 3 -o /tmp/kernel-nightly.zip "$NIGHTLY_KERNEL_URL"; \
+        mkdir -p /tmp/kernel-nightly; \
+        unzip -o /tmp/kernel-nightly.zip -d /tmp/kernel-nightly; \
+        pacman-retry -U --noconfirm /tmp/kernel-nightly/*.pkg.tar.*; \
+        rm -rf /tmp/kernel-nightly /tmp/kernel-nightly.zip; \
+    elif [ -n "$KERNEL_VERSION" ]; then \
         echo "Installing pinned kernel $KERNEL_VERSION from release URL"; \
         BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo; \
         for pkg in linux-nabu linux-nabu-headers; do \
