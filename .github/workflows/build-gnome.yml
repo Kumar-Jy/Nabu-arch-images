@@ -21,6 +21,26 @@ on:
         description: "Create a GitHub Release after build"
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.14.11-8); empty = latest in [nabu] repo"
+        type: string
+        default: "6.14.11-8"
+        required: false
+      nightly_kernel_url:
+        description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
+        type: string
+        default: ""
+        required: false
+      rebuild_base:
+        description: "Rebuild base image first"
+        type: boolean
+        default: false
+      trigger_release:
+        description: "Create a GitHub Release after build"
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
