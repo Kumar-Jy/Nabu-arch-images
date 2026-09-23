@@ -3,11 +3,22 @@ name: Build base image
 on:
   workflow_dispatch:
     inputs:
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        type: string
+        default: ""
+        required: false
       trigger_builds:
         description: "Also trigger GNOME and Plasma builds after base"
         type: boolean
         default: false
   workflow_call:
+    inputs:
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        type: string
+        default: ""
+        required: false
 
 env:
   REGISTRY: ghcr.io
@@ -52,6 +63,7 @@ jobs:
           podman build --squash \
             -t ${{ steps.meta.outputs.tag }} \
             -t ${{ steps.meta.outputs.latest }} \
+            --build-arg KERNEL_VERSION="${{ inputs.kernel_version }}" \
             -f base/Containerfile \
             base/
 

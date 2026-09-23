@@ -3,6 +3,11 @@ name: Build Plasma installer
 on:
   workflow_dispatch:
     inputs:
+      kernel_version:
+        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        type: string
+        default: ""
+        required: false
       rebuild_base:
         description: "Rebuild base image first"
         type: boolean
@@ -22,6 +27,8 @@ jobs:
   build-base:
     if: ${{ inputs.rebuild_base == true }}
     uses: ./.github/workflows/build-base.yml
+    with:
+      kernel_version: ${{ inputs.kernel_version }}
     permissions:
       contents: read
       packages: write

@@ -1,5 +1,10 @@
 FROM docker.io/menci/archlinuxarm:latest
 
+# Kernel to install: empty = latest linux-nabu in [nabu] repo;
+# set (e.g. 6.16.0-3) = install that exact kernel + headers from the
+# release URL directly (repo db only tracks the newest version per name).
+ARG KERNEL_VERSION=
+
 LABEL containers.bootc="1"
 LABEL ostree.bootable="true"
 
@@ -42,8 +47,22 @@ RUN set -eux; \
     pacman-key --populate; \
     pacman-retry -R --noconfirm linux-aarch64 || true; \
     pacman-retry -Syu --noconfirm; \
+    if [ -n "$KERNEL_VERSION" ]; then \
+        echo "Installing pinned kernel $KERNEL_VERSION from release URL"; \
+        BASE=https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo; \
+        for pkg in linux-nabu linux-nabu-headers; do \
+            url="$BASE/${pkg}-${KERNEL_VERSION}-aarch64.pkg.tar.xz"; \
+            echo "Downloading $url"; \
+            curl -fL --retry 3 -o "/tmp/${pkg}.pkg.tar.xz" "$url"; \
+        done; \
+        pacman-retry -U --noconfirm \
+            /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz; \
+        rm -f /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz; \
+    else \
+        pacman-retry -S --noconfirm \
+            linux-nabu linux-nabu-headers; \
+    fi; \
     pacman-retry -S --noconfirm \
-        linux-nabu \
         linux-firmware-xiaomi-nabu \
         alsa-ucm-conf-xiaomi-nabu \
         tqftpserv rmtfs \
