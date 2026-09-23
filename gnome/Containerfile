@@ -12,13 +12,19 @@ RUN set -eux; \
         gnome-keyring gnome-menus xdg-user-dirs-gtk nautilus \
         xdg-desktop-portal-gnome gnome-console \
         pipewire pipewire-pulse pipewire-jack \
+        wireplumber pipewire-libcamera \
+        gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools \
         network-manager-applet \
         noto-fonts \
         vulkan-freedreno \
         flatpak gnome-software \
-        geoclue; \
+        geoclue \
+        loupe gnome-text-editor firefox; \
+    pacman-retry -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor || true; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
+    systemctl enable nabu-tablet-mode 2>/dev/null || true; \
+    rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}; \
     pacman -Scc --noconfirm
 
 # --- Enable GDM + auto-login ---

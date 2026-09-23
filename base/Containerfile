@@ -1,7 +1,7 @@
 FROM docker.io/menci/archlinuxarm:latest
 
 # Kernel to install: empty = latest linux-nabu in [nabu] repo;
-# set (e.g. 6.16.0-3) = install that exact kernel + headers from the
+# set (e.g. 6.14.11-8) = install that exact kernel + headers from the
 # release URL directly (repo db only tracks the newest version per name).
 ARG KERNEL_VERSION=
 
@@ -65,9 +65,11 @@ RUN set -eux; \
     pacman-retry -S --noconfirm \
         linux-firmware-xiaomi-nabu \
         alsa-ucm-conf-xiaomi-nabu \
-        tqftpserv rmtfs \
+        qrtr tqftpserv rmtfs hexagonrpcd \
         nabu-pmac; \
+    systemctl enable qrtr-ns || true; \
     systemctl enable tqftpserv rmtfs || true; \
+    systemctl enable hexagonrpcd || true; \
     kernver=$(ls /usr/lib/modules/ | sort -V | tail -1); \
     if [ -n "$kernver" ]; then \
         for src in "/boot/vmlinux-${kernver}" "/boot/vmlinuz-${kernver}" "/boot/vmlinuz-linux-nabu" "/boot/Image"; do \
@@ -77,6 +79,12 @@ RUN set -eux; \
             fi; \
         done; \
     fi; \
+    if grep -q '^#IgnorePkg' /etc/pacman.conf; then \
+        sed -i 's|^#IgnorePkg.*|IgnorePkg = linux-nabu linux-nabu-headers|' /etc/pacman.conf; \
+    else \
+        sed -i '/^\[options\]/a IgnorePkg = linux-nabu linux-nabu-headers' /etc/pacman.conf; \
+    fi; \
+    rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}; \
     pacman -Scc --noconfirm
 
 # --- Layer 2b: Install bootc (prebuilt package or compile from source) ---
@@ -127,7 +135,9 @@ RUN set -eux; \
     pacman -S --noconfirm sudo terminus-font btrfs-progs; \
     echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel; \
     systemctl disable sshd || true; \
-    pacman -S --noconfirm vulkan-freedreno || true
+    pacman -S --noconfirm vulkan-freedreno || true; \
+    pacman-retry -S --noconfirm iio-sensor-proxy psmisc ntfs-3g iris-vaapi || true; \
+    systemctl enable iio-sensor-proxy || true
 
 # --- Layer 4: ostree/sysroot layout ---
 RUN set -eux; \
@@ -157,7 +167,8 @@ RUN set -eux; \
 RUN set -eux; \
     systemctl enable btrfs-scrub@-.timer || true; \
     pacman-retry -S --noconfirm snapper zram-generator || true; \
-    systemctl enable snapper-timeline.timer snapper-cleanup.timer || true
+    systemctl enable snapper-timeline.timer snapper-cleanup.timer || true; \
+    systemctl enable systemd-zram-setup@zram0.service 2>/dev/null || true
 
 # --- Layer 7: mkinitcpio ---
 RUN set -eux; \

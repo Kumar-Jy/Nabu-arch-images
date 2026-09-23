@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       kernel_version:
-        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.14.11-8); empty = latest in [nabu] repo"
         type: string
-        default: ""
+        default: "6.14.11-8"
         required: false
       trigger_builds:
         description: "Also trigger GNOME and Plasma builds after base"
@@ -15,9 +15,9 @@ on:
   workflow_call:
     inputs:
       kernel_version:
-        description: "Kernel version to install (e.g. 6.16.0-3); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.14.11-8); empty = latest in [nabu] repo"
         type: string
-        default: ""
+        default: "6.14.11-8"
         required: false
 
 env:

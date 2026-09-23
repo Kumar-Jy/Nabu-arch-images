@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# Xiaomi nabu AAC OV8856 front-camera tuning for libcamera's simple IPA.
+# The CCMs were recovered from the BPS cc13 block in
+# com.qti.tuned.nabu_aac_ov8856_front.bin
+# (SHA256 5aa3e22bff5ec3381127a9590586c0f529204eeaa05a452e5b3d2cf9288bdf13).
+# Qualcomm's original CCT transition intervals are preserved by duplicating
+# the middle matrix at 3600 K and 5500 K.
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+  - Awb:
+  - Ccm:
+      ccms:
+        - ct: 3000
+          ccm: [ 2.223977804, -1.341088653,  0.117110960,
+                -0.360502243,  1.479450583, -0.118948370,
+                -0.203412086, -1.458215356,  2.661627531 ]
+        - ct: 3600
+          ccm: [ 2.233054876, -1.416324377,  0.183269396,
+                -0.214910880,  1.610423326, -0.395512402,
+                 0.022777162, -1.171000361,  2.148223162 ]
+        - ct: 5500
+          ccm: [ 2.233054876, -1.416324377,  0.183269396,
+                -0.214910880,  1.610423326, -0.395512402,
+                 0.022777162, -1.171000361,  2.148223162 ]
+        - ct: 6000
+          ccm: [ 2.208596468, -1.272880912,  0.064284503,
+                -0.223566025,  1.580376267, -0.356810302,
+                 0.053602763, -0.929830670,  1.876227856 ]
+  - Adjust:
+  - Agc:
+...

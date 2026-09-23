@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Clean up unused firmware blobs to save disk space
+rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}
+
 kernver=$(ls /usr/lib/modules/ | sort -V | tail -1)
 if [ -n "$kernver" ]; then
   cat > /etc/mkinitcpio.d/linux-nabu.preset << PRESET

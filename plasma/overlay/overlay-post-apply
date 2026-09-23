@@ -3,3 +3,13 @@ set -euo pipefail
 
 chown -R sddm:sddm /var/lib/sddm/.config/ 2>/dev/null || true
 chown -R user:user /var/home/user/ 2>/dev/null || true
+
+# Enable tablet-mode sensor helper (package-provided binary/service)
+if [ -f /usr/lib/systemd/system/nabu-tablet-mode.service ]; then
+    systemctl enable nabu-tablet-mode.service 2>/dev/null || true
+fi
+
+# Enable nabu-autobrightness user service globally for graphical sessions
+if [ -f /usr/lib/systemd/user/nabu-autobrightness.service ]; then
+    systemctl --global enable nabu-autobrightness.service 2>/dev/null || true
+fi
