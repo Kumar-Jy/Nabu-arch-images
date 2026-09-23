@@ -19,8 +19,8 @@ RUN set -eux; \
         vulkan-freedreno \
         flatpak gnome-software \
         geoclue \
-        loupe gnome-text-editor firefox; \
-    pacman-retry -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor || true; \
+        loupe gnome-text-editor; \
+    pacman-retry -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
     systemctl enable nabu-tablet-mode 2>/dev/null || true; \

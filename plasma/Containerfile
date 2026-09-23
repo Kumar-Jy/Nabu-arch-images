@@ -22,17 +22,15 @@ RUN set -eux; \
         wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools \
         noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg \
         vulkan-freedreno flatpak \
-        xdg-user-dirs \
-        firefox; \
-    pacman-retry -S --noconfirm sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor || true; \
+        xdg-user-dirs sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}; \
     pacman -Scc --noconfirm
 
 # --- Enable SDDM + auto-login ---
-RUN systemctl enable sddm || true; \
-    systemctl enable nabu-tablet-mode 2>/dev/null || true; \
-    systemctl --global enable nabu-autobrightness.service 2>/dev/null || true; \
+RUN systemctl enable sddm; \
+    systemctl enable nabu-tablet-mode; \
+    systemctl --global enable nabu-autobrightness.service; \
     mkdir -p /etc/sddm.conf.d; \
     printf '[Autologin]\nUser=user\nSession=plasma\n' > /etc/sddm.conf.d/autologin.conf
 
