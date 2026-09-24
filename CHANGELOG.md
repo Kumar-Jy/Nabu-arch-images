@@ -1,31 +1,37 @@
-# Changelog - Arch Linux ARM for Xiaomi Pad 5 (nabu)
+# Changelog
 
-All notable changes to the `nabu` Arch Linux ARM disk images, installer packages, and hardware integration are documented in this file.
+All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented here.
 
 ---
 
-## [Build 2026-09-24]
+## [Build 2026-09-25]
 
-### Kernel side
+### ⚙️ Kernel & Boot
+- **Kernel 6.14.11-10:** Merged suspend/wake, VPU, NTFS3, MIDI & audio fixes.
+- **Headers & DKMS:** Pre-installed for on-device module builds (e.g. DisplayLink).
+- **Safe UKI Boot:** Auto-rebuilds UKI with fallback backup (`uki-regenerate`).
+- **Default Kernel:** Installer default updated to `6.14.11-10`.
 
-- Kernel upgraded to **6.14.11-10** (merged `6.14` branch: MIDI, suspend/wake, VPU, NTFS3, Bluetooth audio fixes)
+### 🖥️ Desktop & Apps
+- **DisplayLink:** Out-of-the-box USB monitor support (`evdi` + service enabled).
+- **nabu-torch:** Flashlight app with brightness slider on GNOME & Plasma.
+- **nabu-tablet-mode:** Standalone package for clean auto-rotation updates.
+- **Lighter Base:** Trimmed redundant packages to improve performance.
 
-- Kernel + headers shipped in image — dkms rebuilds modules on-device (self-healing)
+### ⚠️ Known Issues
+- **Rotation:** Sensor may pause after sleep (recovery fix in progress).
+- **Audio:** Minor crackling at maximum volume.
+- **Camera:** Basic capture works; Qualcomm ISP tuning is WIP.
 
-- UKI auto-regenerated on kernel install/upgrade (`uki-regenerate`, keeps previous known-good)
+---
 
-### User space side
+## [Build 2026-09-18]
 
-- DisplayLink out of the box: `dkms`, `evdi-dkms`, `displaylink` pre-installed, `displaylink.service` enabled (atomic + non-atomic installers)
-
-- Flashlight/torch app (`nabu-torch`) with intensity control pre-installed on GNOME + Plasma images
-
-- Installer default kernel version moved to `6.14.11-10`
-
-### Known issues
-
-- Auto-rotation (accelerometer) stops working after sleep — resume fix planned (`nabu-sensors-recover`)
-
-- Audio crackling at full volume
-
-- Camera image processing not on par with Android (no Qualcomm ISP tuning)
+### 🚀 Initial Release
+- **Desktops:** Separate disk images for KDE Plasma and GNOME.
+- **HW Video Decode:** Iris/Venus accelerated playback via `iris-vaapi`.
+- **Audio & BT:** Quad CS35L41 speakers with ALSA/PipeWire; Bluetooth 5.0.
+- **Brightness:** Ambient light sensor support on Plasma & GNOME.
+- **Touch & Pen:** 10-point multi-touch and Xiaomi Smart Pen stylus.
+- **Cameras:** Front & rear camera support via `camera-studio`.
+- **Multi-Boot:** Bundled DBKP + rEFInd bootloader for Windows/Android/Linux.
