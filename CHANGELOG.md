@@ -4,7 +4,7 @@ All notable changes to the `nabu` Arch Linux ARM disk images, installer packages
 
 ---
 
-## [Next Build] - 2026-09-24
+## [Build 2026-09-24]
 
 ### Kernel side
 
