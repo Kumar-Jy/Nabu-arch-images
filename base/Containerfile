@@ -1,7 +1,7 @@
 FROM docker.io/menci/archlinuxarm:latest
 
 # Kernel to install: empty = latest linux-nabu in [nabu] repo;
-# set (e.g. 6.14.11-8) = install that exact kernel + headers from the
+# set (e.g. 6.14.11-10) = install that exact kernel + headers from the
 # release URL directly (repo db only tracks the newest version per name).
 # NIGHTLY_KERNEL_URL (optional ZIP of kernel/headers pkg.tar.*) takes
 # precedence over both; empty = use KERNEL_VERSION / repo latest.
@@ -76,10 +76,12 @@ RUN set -eux; \
         linux-firmware-xiaomi-nabu \
         alsa-ucm-conf-xiaomi-nabu \
         qrtr tqftpserv rmtfs hexagonrpcd \
-        nabu-pmac; \
+        nabu-pmac \
+        dkms evdi-dkms displaylink; \
     systemctl enable qrtr-ns || true; \
     systemctl enable tqftpserv rmtfs || true; \
     systemctl enable hexagonrpcd || true; \
+    systemctl enable displaylink || true; \
     kernver=$(ls /usr/lib/modules/ | sort -V | tail -1); \
     if [ -n "$kernver" ]; then \
         for src in "/boot/vmlinux-${kernver}" "/boot/vmlinuz-${kernver}" "/boot/vmlinuz-linux-nabu" "/boot/Image"; do \

@@ -22,7 +22,7 @@ RUN set -eux; \
         wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools \
         noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg \
         vulkan-freedreno flatpak \
-        xdg-user-dirs sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor; \
+        xdg-user-dirs sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor nabu-torch; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     rm -rf /usr/lib/firmware/{intel,nvidia,amdgpu,mediatek,radeon,cirrus,brcm,ti-connectivity,i915}; \
     pacman -Scc --noconfirm

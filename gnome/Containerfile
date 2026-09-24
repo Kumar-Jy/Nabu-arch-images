@@ -20,7 +20,7 @@ RUN set -eux; \
         flatpak gnome-software \
         geoclue \
         loupe gnome-text-editor; \
-    pacman-retry -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor; \
+    pacman-retry -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor nabu-torch; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
     systemctl enable nabu-tablet-mode 2>/dev/null || true; \
