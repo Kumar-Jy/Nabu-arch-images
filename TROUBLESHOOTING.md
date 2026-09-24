@@ -26,7 +26,7 @@ sudo pacman -Sy
 
 ## Wi-Fi MAC is random or the interface is renamed (`wlan0` → `wld0`)
 
-`nabu-pmac` derives a deterministic Wi-Fi MAC from the board serial and sets it
+`nabu-pmac` derives Wi-Fi MAC from the board serial and sets it
 on boot. Older images ran the service *after* NetworkManager, so
 NetworkManager's own (random per-boot) MAC won; newer systemd also renames the
 wireless interface (`wlan0` → `wld0`).
@@ -45,62 +45,6 @@ sudo systemctl enable --now nabu-pmac
 sudo reboot
 ```
 
-`--overwrite` is required once because the running image already contains
-unowned copies of the service file and the `.link` file at those paths. The
-`rm -rf` clears any stale drop-in left by the earlier helper script (it is a
-no-op on a stock image).
-
-### Option B — helper script
-
-```bash
-sudo curl -fL -o /tmp/fix-nabu-pmac.sh \
-  https://raw.githubusercontent.com/Kumar-Jy/Nabu-arch-images/main/scripts/fix-nabu-pmac.sh
-sudo bash /tmp/fix-nabu-pmac.sh
-sudo reboot
-```
-
-The script pins the interface name, replaces the setup script with a bounded-wait
-version (so it can never stall boot), and orders the service to run before
-NetworkManager.
-
-Or copy-paste the equivalent steps manually:
-
-```bash
-sudo mkdir -p /etc/systemd/network
-sudo tee /etc/systemd/network/10-wlan.link >/dev/null <<'EOF'
-[Match]
-OriginalName=wlan*
-[Link]
-Name=wlan0
-EOF
-
-sudo mkdir -p /etc/systemd/system/nabu-pmac.service.d
-sudo tee /etc/systemd/system/nabu-pmac.service.d/10-ordering.conf >/dev/null <<'EOF'
-[Unit]
-Wants=network-pre.target
-Before=network-pre.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable nabu-pmac
-sudo reboot
-```
-
-### Option C — offline TWRP recovery (when Linux won't boot)
-
-If a broken `nabu-pmac` service prevents Linux from booting, repair it from
-TWRP without entering the system. With the device in TWRP (ADB available), run
-the following from the repository root:
-
-```bash
-adb push scripts/offline/* /tmp/offline/
-adb shell sh /tmp/offline/repair-nabu-pmac-offline.sh
-```
-
-The script mounts the Linux rootfs at `/dev/block/by-name/linux` and overwrites
-the stale `nabu-pmac` unit, setup script and drop-in with the fixed versions.
-Reboot into Linux afterwards.
-
 ### Verify
 
 After applying any option, reboot and confirm the MAC is stable:
@@ -111,23 +55,14 @@ ip link show wlan0
 
 ---
 
-## Linux won't boot
 
-### Hang during Wi-Fi MAC setup
-If boot hangs during the Wi-Fi MAC setup, the installed `nabu-pmac` service is
-the old unbounded version. Repair it from TWRP with **Option C** above.
+## Failed to boot after kernel update
 
-### Tablet does not boot after a kernel update
+Symptoms: stuck at rEFInd / black screen, or boot error `Timed out waiting for device /dev/disk/by-partlabel/linux`.
 
-The UKI no longer matches the installed kernel. On older images either
-`uki-regenerate` picked a stale `*.old`/`*.safe` module tree (the new kernel got
-no UKI and `arch-linux-nabu-old.efi` is a copy of the same stale image), or
-`systemd-ukify` was replaced and stripped the Device Tree / `acpi=off`.
+### Fix from TWRP (Offline)
 
-Symptoms: stuck at rEFInd or a black screen, or `Timed out waiting for device
-/dev/disk/by-partlabel/linux` with `the root account is locked`.
-
-#### Fix from TWRP (Offline)
+If a kernel update broke booting or you need to install/downgrade a kernel (download packages from [nabu-pkgs releases](https://github.com/Kumar-Jy/nabu-pkgs/releases/tag/repo)):
 
 ```bash
 adb shell
@@ -136,36 +71,79 @@ mount /dev/block/by-name/esp /linux/boot/efi
 mount -t proc proc /linux/proc
 mount -t sysfs sys /linux/sys
 mount --bind /dev /linux/dev
+mount -t devpts devpts /linux/dev/pts
+ln -sf /proc/self/fd /linux/dev/fd
 
-# 1. If nabu-boot-tools is installed, run automated repair:
-env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux /usr/bin/nabu-boot-repair
+# (Optional) Install / downgrade kernel packages pushed via adb
+# adb push linux-nabu-*.pkg.tar.xz /linux/tmp/
+# TMPDIR=/tmp PATH=/usr/bin:/bin chroot /linux pacman -U --overwrite '*' /tmp/linux-nabu-*.pkg.tar.xz
 
-# Or manual repair if nabu-boot-tools is not yet installed:
-# Check installed kernel: ls /linux/usr/lib/modules (e.g. 6.14.11-1-nabu)
-# sed -i 's|^ALL_kver=.*|ALL_kver="/boot/vmlinuz-<kernel-version>"|' /linux/etc/mkinitcpio.d/linux-nabu.preset
-# sed -i -e 's/\bautodetect\b//g' -e 's/\bmicrocode\b//g' /linux/etc/mkinitcpio.conf
-# printf '[UKI]\nDeviceTree=/boot/dtb-linux-nabu\n' > /linux/etc/kernel/uki.conf
-# grep -q 'acpi=off' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ acpi=off/' /linux/etc/cmdline.d/root.conf
-# grep -q 'fw_devlink=permissive' /linux/etc/cmdline.d/root.conf || sed -i 's/$/ fw_devlink=permissive/' /linux/etc/cmdline.d/root.conf
-# env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux mkinitcpio -P
+# Regenerate UKI boot image
+TMPDIR=/tmp PATH=/usr/bin:/bin chroot /linux /usr/libexec/nabu/uki-regenerate
 
-# 2. Unmount and reboot
-umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
+# Unmount and reboot
+umount /linux/boot/efi /linux/dev/pts /linux/dev /linux/sys /linux/proc /linux
 reboot
 ```
 
-#### Fix Online (if tablet boots)
+### Fix Online (if tablet boots)
 
-Install `nabu-boot-tools` from the `[nabu]` repo, which automatically configures your boot parameters, updates `uki-regenerate`, and verifies the UKI:
+Re-run UKI regeneration directly from Linux:
 
 ```bash
-sudo pacman -Sy --overwrite '*' nabu-boot-tools
+sudo /usr/libexec/nabu/uki-regenerate
 ```
 
-You can also re-run the repair at any time:
-```bash
-sudo nabu-boot-repair
-```
+---
+
+## Cleaning older kernel versions
+
+> [!WARNING]
+> You must verify that the tablet boots successfully with the new kernel before removing older versions, to ensure you do not delete a working fallback.
+
+### Online (from running Linux)
+
+In online mode, the ESP partition is mounted under `/boot` (at `/boot/efi`):
+
+1. Confirm the running kernel:
+   ```bash
+   uname -r
+   ```
+2. List installed kernels, module trees, and EFI images:
+   ```bash
+   ls -l /boot
+   ls -l /usr/lib/modules
+   ls -l /boot/efi/EFI/arch
+   ```
+3. Remove old unused kernel files, modules, and old fallback UKI (replace `<old-version>`):
+   ```bash
+   sudo rm -rf /boot/vmlinu*-<old-version> /boot/dtb-<old-version> /usr/lib/modules/<old-version>
+   sudo rm -f /boot/efi/EFI/arch/*-old.efi
+   ```
+
+### Offline (from TWRP)
+
+In offline mode, ESP is on `/dev/block/by-name/esp` containing `EFI/arch/*-old.efi`:
+
+1. Mount Linux and ESP partitions:
+   ```bash
+   adb shell
+   mount /dev/block/by-name/linux /linux
+   mount /dev/block/by-name/esp /linux/boot/efi
+   ```
+2. Identify and remove older kernel files, modules, and old fallback UKI (replace `<old-version>`):
+   ```bash
+   ls -l /linux/boot
+   ls -l /linux/usr/lib/modules
+   ls -l /linux/boot/efi/EFI/arch
+
+   rm -rf /linux/boot/vmlinu*-<old-version> /linux/boot/dtb-<old-version> /linux/usr/lib/modules/<old-version>
+   rm -f /linux/boot/efi/EFI/arch/*-old.efi
+   ```
+3. Unmount:
+   ```bash
+   umount /linux/boot/efi /linux
+   ```
 
 ---
 
