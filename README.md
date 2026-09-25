@@ -117,7 +117,7 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 ### Official update (from the nabu repository)
 
 ```bash
-sudo pacman -Syu
+sudo pacman -Syu linux-nabu linux-nabu-headers
 ```
 
 ### Local / custom (non-official) kernel update
@@ -125,63 +125,21 @@ sudo pacman -Syu
 If you built your own kernel package:
 
 ```bash
-# 1. Build your own package (bump pkgver / pkgrel on EVERY build!)
-makepkg
-# 2. Install it directly
 sudo pacman -U linux-nabu-<version>-aarch64.pkg.tar.xz
 ```
 
-> pacman decides "is this an update?" using only `pkgver`/`pkgrel`, never the kernel
-> version string. If those don't change, pacman reports *"up to date"* and skips the
-> install, so the UKI won't be regenerated. Always bump `pkgver` (or `pkgrel`) for
-> each new build.
-
-The UKI is regenerated automatically by the pacman hook for any package named
-`linux-nabu*`, including custom builds. To repair boot configuration or force a rebuild manually:
+To repair boot configuration or force a rebuild manually:
 
 ```bash
 sudo nabu-boot-repair
-# or directly: sudo /usr/libexec/nabu/uki-regenerate
+```
+or directly:
+```bash
+sudo /usr/libexec/nabu/uki-regenerate
 ```
 
 > Tablet will not boot after an update? See
 > [Tablet does not boot after a kernel update](TROUBLESHOOTING.md#tablet-does-not-boot-after-a-kernel-update).
-
-### Offline Kernel Install / Recovery via TWRP
-
-If Linux cannot boot or you want to install/update a kernel package (`.pkg.tar.xz`) completely offline using TWRP:
-
-**1. Push the package to TWRP's `/tmp/` directory:**
-
-```bash
-adb push linux-nabu-6.xx.xx-aarch64.pkg.tar.xz /tmp/
-```
-
-**2. Open an ADB shell, mount the partitions, and install inside the chroot:**
-
-```bash
-adb shell
-
-# Mount rootfs, EFI partition, and virtual filesystems
-mount /dev/block/by-name/linux /linux
-mount /dev/block/by-name/esp /linux/boot/efi
-mount -t proc proc /linux/proc
-mount -t sysfs sys /linux/sys
-mount --bind /dev /linux/dev
-
-# Copy package and install inside chroot
-cp /tmp/linux-nabu-*.pkg.tar.xz /linux/tmp/
-env -i PATH=/usr/bin:/usr/sbin:/bin:/sbin TMPDIR=/tmp chroot /linux pacman -U /tmp/linux-nabu-6.xx.xx-aarch64.pkg.tar.xz
-```
-
-**3. Unmount and reboot:**
-
-```bash
-umount /linux/boot/efi /linux/dev /linux/sys /linux/proc /linux
-reboot
-```
-
----
 
 ## Troubleshooting
 
