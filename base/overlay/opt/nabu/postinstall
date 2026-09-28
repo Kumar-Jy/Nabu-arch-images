@@ -6,7 +6,7 @@ SCRIPTPATH="$(
   pwd -P
 )"
 ESPPATH="/boot/efi"
-USERGROUPS=("wheel")
+USERGROUPS=("wheel" "audio" "video" "storage" "optical" "i2c")
 USERSHELL="/bin/bash"
 
 if [[ $EUID -ne 0 ]]; then
