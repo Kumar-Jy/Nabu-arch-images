@@ -113,7 +113,7 @@ jobs:
       - name: Add nabu repo
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' >> /etc/pacman.conf
+          sed -i '/^\[core\]/i \[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' /etc/pacman.conf
           n=0
           until pacman -Sy --noconfirm; do
             n=$((n+1))
@@ -248,10 +248,10 @@ jobs:
           rm /overlay-post-apply
           EOF
 
-      - name: Install nabu wlan service
+      - name: Install nabu wlan service and tools
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm nabu-pmac
+          pacman -S --noconfirm nabu-pmac nabu-kclean
           systemctl enable nabu-pmac
           EOF
 

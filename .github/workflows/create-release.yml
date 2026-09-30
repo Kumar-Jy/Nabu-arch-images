@@ -162,8 +162,8 @@ jobs:
           ### Normal Builds:
 
           Action artifact link
-          - [Plasma Installer Zip](${NL_BASE})
-          - [GNOME Installer Zip](${NL_BASE})
+          - [Plasma Installer Zip](${NL_BASE}/arch-nabu-installer-plasma.zip)
+          - [GNOME Installer Zip](${NL_BASE}/arch-nabu-installer-gnome.zip)
 
           BODY
 
@@ -207,6 +207,15 @@ jobs:
             if [ -n "$ATOMIC_GNOME_PD_URL" ]; then
               echo "- [GNOME Installer (Pixeldrain)]($ATOMIC_GNOME_PD_URL)" >> release-notes.md
             fi
+          fi
+
+          if [ -f CHANGELOG.md ]; then
+            echo "" >> release-notes.md
+            echo "---" >> release-notes.md
+            echo "" >> release-notes.md
+            echo "## What's Changed" >> release-notes.md
+            echo "" >> release-notes.md
+            awk '/^## \[/{if (found) exit; found=1; next} found{if (/^---/ || /^## \[/) exit; print}' CHANGELOG.md >> release-notes.md
           fi
 
       - name: Generate download scripts

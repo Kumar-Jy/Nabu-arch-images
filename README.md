@@ -144,6 +144,14 @@ sudo nabu-boot-repair
 # or directly: sudo /usr/libexec/nabu/uki-regenerate
 ```
 
+To clean up old backed-up kernel modules and backup UKIs after an update:
+
+```bash
+sudo nabu-kclean
+# or preview first: sudo nabu-kclean --dry-run
+# (alias: sudo kclean)
+```
+
 > Tablet will not boot after an update? See
 > [Tablet does not boot after a kernel update](TROUBLESHOOTING.md#tablet-does-not-boot-after-a-kernel-update).
 
