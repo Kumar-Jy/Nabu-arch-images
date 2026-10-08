@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 6.14.11-10); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 6.18.55-1); empty = latest in [nabu] repo"
         type: string
-        default: "6.14.11-10"
+        default: "6.18.55-1"
         required: false
       nightly_kernel_url:
         description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
@@ -244,7 +244,7 @@ jobs:
       - name: Install nabu wlan service and tools
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          pacman -S --noconfirm nabu-pmac nabu-kclean nabu-boot-tools
+          pacman -S --noconfirm nabu-pmac nabu-kclean
           systemctl enable nabu-pmac
           EOF
 
