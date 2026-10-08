@@ -4,6 +4,22 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 
 ---
 
+## [Build 2026-10-08]
+
+### ⚙️ Kernel & Boot
+- **Kernel 6.18.55-1:** Updated to new 6.18 LTS branch.
+  - **Display Fixes:** Resolved DSI PLL lock failures and restored PM runtime resume for more stable boot and UEFI handover.
+  - **Storage:** Added Samsung UFS compatibility via DT frequency tables and reset quirks.
+  - **Hardware Support:** Full support for OV13B10/OV8856 cameras, SM8150 audio (24-bit mic), and PM8150B SMB5 charger with USB-PD sink.
+
+### 🖥️ Desktop & Apps
+- **stylus-popup:** Added "Dynamic Island" style status pill for the stylus.
+  - Displays pen battery/charging state via `wlr-layer-shell`.
+  - Supports Gen 1/Gen 2 detection and customizable side-button shell commands.
+- **iio-sensor-proxy (3.9-5):** Added proximity sensor support by decoding the Xiaomi `sar_algo_1` sensor data.
+
+---
+
 ## [Build 2026-09-30]
 
 ### ⚙️ Kernel & Boot

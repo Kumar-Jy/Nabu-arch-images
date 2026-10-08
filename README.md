@@ -43,7 +43,7 @@
 | **Screen Rotation** | Automatic Screen Rotation | ✅ Working | Handled via `nabu-tablet-mode` daemon |
 | **Auto-Brightness** | Ambient Light Sensor (ALS) | ✅ Working | Native `gsd-power` on GNOME, `nabu-autobrightness` on Plasma |
 | **Stylus (Input)** | Xiaomi Smart Pen (Drawing & Input) | ✅ Working | 4096 pressure levels, tilt, hover, and dual barrel buttons via `NVTCapacitivePen` |
-| **Stylus (Charging)** | Wireless Magnetic Pen Charging | ⚠️ WIP | Requires IDT P9418 wireless charger driver (available in 6.17+ kernels) |
+| **Stylus (Charging)** | Wireless Magnetic Pen Charging | ✅ Working | Supported via IDT P9418 driver (integrated in 6.18 kernel) |
 | **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
 | **Battery & Power** | Battery Telemetry & Charging | ✅ Working | PM8150B charger driver, battery gauge, 15W USB-PD and QC charging |
 | **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
