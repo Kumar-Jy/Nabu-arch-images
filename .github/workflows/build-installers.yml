@@ -560,7 +560,8 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace print-manager qqc2-breeze-style sddm-kcm spectacle xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace print-manager qqc2-breeze-style sddm-kcm spectacle xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm --overwrite "*" oskb
           systemctl --global enable nabu-autobrightness.service
           systemctl --global enable stylus-popup.service || true
           EOF
