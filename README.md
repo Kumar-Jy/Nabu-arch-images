@@ -1,5 +1,5 @@
 # Arch Linux ARM Installer for Xiaomi Pad 5 (nabu)
-![Arch Linux Arm on the Xiaomi Pad 5 (nabu)](nabu_alarm.jpg)
+![Arch Linux Arm on the Xiaomi Pad 5 (nabu)](nabu_alarm.png)
 
 ---
 

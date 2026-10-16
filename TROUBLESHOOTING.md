@@ -59,26 +59,11 @@ ip link show wlan0
  
 **Symptoms:** stuck at rEFInd / black screen, or boot error `Timed out waiting for device /dev/disk/by-partlabel/linux`.
  
-### 🛠️ Fix from TWRP (Automated Script)
+### 🛠️ Fix from TWRP
  
 If a kernel update broke booting or you need to install/downgrade a kernel offline:
  
-1. **Download** the kernel and headers packages from [nabu-pkgs releases](https://github.com/Kumar-Jy/nabu-pkgs/releases/tag/repo).
-2. **Push the packages and the repair script** to the device:
-   ```bash
-   adb push linux-nabu-*.pkg.tar.zst /tmp/
-   adb push scripts/offline/offline-kernel-install.sh /tmp/
-   ```
-3. **Run the repair script**:
-   ```bash
-   adb shell sh /tmp/offline-kernel-install.sh
-   ```
-> [!TIP]
-> The script will automatically mount your partitions, run `nabu-kclean` to clear old backups, install the packages, and regenerate the UKI.
- 
-### 🛠️ Fix from TWRP (Manual)
- 
-If you prefer to do it manually or the script fails:
+**Download** the kernel and headers packages from [nabu-pkgs releases](https://github.com/Kumar-Jy/nabu-pkgs/releases/tag/repo).
  
 ```bash
 adb shell

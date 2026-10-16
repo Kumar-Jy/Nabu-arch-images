@@ -1,4 +1,4 @@
-name: Build installers # Force refresh
+name: Build installers
 
 on:
   workflow_dispatch:
@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 6.18.55-1); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 7.2.10-1); empty = latest in [nabu] repo"
         type: string
-        default: "6.18.55-1"
+        default: "7.2.10-0"
         required: false
       nightly_kernel_url:
         description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
@@ -186,6 +186,7 @@ jobs:
               pacman -U --noconfirm /tmp/linux-nabu.pkg.tar.xz /tmp/linux-nabu-headers.pkg.tar.xz
             "
           fi
+
 
       - name: Install alsa ucm config
         run: |
@@ -382,7 +383,6 @@ jobs:
       - name: Install GNOME Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
-          set -e
           n=0
           until pacman -Syu --noconfirm; do
             n=$((n+1))
@@ -392,8 +392,8 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower-nncc gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts vulkan-freedreno flatpak gnome-software loupe gnome-text-editor
-          pacman -S --noconfirm nabu-tablet-mode oskb camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm upower gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring xdg-user-dirs-gtk nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts vulkan-freedreno flatpak gnome-software loupe gnome-text-editor
+          pacman -S --noconfirm nabu-tablet-mode camera-studio system-monitor nabu-torch
           EOF
 
       - name: Apply DE overlay
@@ -560,7 +560,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower-nncc bluedevil breeze breeze-gtk discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm upower bluedevil breeze breeze-gtk discover drkonqi kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration kdeplasma-addons kgamma kglobalacceld kinfocenter kmenuedit kpipewire kscreen kscreenlocker ksystemstats kwallet-pam kwayland kwin layer-shell-qt libkscreen libksysguard libplasma milou ocean-sound-theme plasma-activities plasma-activities-stats plasma-browser-integration plasma-desktop plasma-integration plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace plasma5support polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-libcamera libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin qt6-multimedia-ffmpeg vulkan-freedreno flatpak sddm-nabu nabu-tablet-mode oskb nabu-autobrightness camera-studio system-monitor nabu-torch
           systemctl --global enable nabu-autobrightness.service
           EOF
 
