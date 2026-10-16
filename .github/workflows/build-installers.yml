@@ -10,7 +10,7 @@ on:
       kernel_version:
         description: "Kernel version to install (e.g. 7.2.10-1); empty = latest in [nabu] repo"
         type: string
-        default: "7.2.10-0"
+        default: "7.2.10-1"
         required: false
       nightly_kernel_url:
         description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
@@ -383,6 +383,7 @@ jobs:
       - name: Install GNOME Desktop
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
+          set -e
           n=0
           until pacman -Syu --noconfirm; do
             n=$((n+1))
@@ -392,7 +393,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts flatpak gnome-software loupe gnome-text-editor
+          pacman -S --noconfirm upower gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts flatpak gnome-software loupe gnome-text-editor
           pacman -S --noconfirm nabu-tablet-mode camera-studio system-monitor nabu-torch
           EOF
 
@@ -560,8 +561,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace print-manager qqc2-breeze-style sddm-kcm spectacle xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
-          pacman -S --noconfirm --overwrite "*" oskb
+          pacman -S --noconfirm upower bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
           systemctl --global enable nabu-autobrightness.service
           systemctl --global enable stylus-popup.service || true
           EOF
@@ -583,7 +583,7 @@ jobs:
           cat > /etc/sddm.conf.d/autologin.conf << 'EOL'
           [Autologin]
           User=user
-          Session=plasma
+          Session=plasma.desktop
           EOL
           EOF
 
