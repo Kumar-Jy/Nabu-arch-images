@@ -4,6 +4,15 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 
 ---
 
+## [Build 2026-10-16]
+
+### ⚙️ Kernel & Boot
+- **Kernel 7.2.10-1:** Upgraded to the Linux 7.2 branch with SM8150 platform enablement.
+  - **GPU Interconnect Bandwidth Voting:** Enabled memory bus bandwidth voting for Adreno 640 GPU (`dts: qcom: sm8150: wire GPU DDR bandwidth votes`), eliminating compositor stuttering and rendering stalls.
+  - **PMIC & Battery Handover:** Fixed PM8150B fuel gauge current and charging status reporting natively in `qcom_bms`.
+
+---
+
 ## [Build 2026-10-08]
 
 ### ⚙️ Kernel & Boot
