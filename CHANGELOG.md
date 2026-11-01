@@ -7,7 +7,10 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 ## [Build 2026-11-01]
 
 ### ⚙️ Kernel & Boot
-- **Kernel 7.3.1-0:** Installer default moved to the 7.3 kernel series (`linux-nabu` / `linux-nabu-headers` from the `[nabu]` repo).
+- **Kernel 7.3.1-1:** Installer default moved to the 7.3 kernel series (`linux-nabu` / `linux-nabu-headers` from the `[nabu]` repo).
+  - **Sleep Stability:** Restored 300ms hardware timer s2idle grace window (`pm_s2idle_set_wake_irq` on PM8941 power key) to eliminate immediate auto-wakeups on power button release.
+  - **Keyboard Cover:** Preserved active pin control across display blanking in `xiaomi_keyboard` to prevent I2C bus lockups.
+  - **Device Tree:** Cleaned up board model property to display clean `"Xiaomi Pad 5"`.
 
 ### 🖥️ Desktop & Apps
 - **Plasma:** The full-size Plasma Keyboard add-on (`plasma-keyboard-full-layout`) is installed and enabled by default for the `user` account, with English and both Hindi layouts (`en_US`, `hi_IN`, `hi_IN_inscript`) available via the globe key.
