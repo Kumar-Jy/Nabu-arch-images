@@ -134,7 +134,7 @@ jobs:
           RUN_ID="${{ needs.upload-non-atomic.outputs.run_id }}"
           REPO="${{ github.repository }}"
           BRANCH="${{ github.ref_name }}"
-          [ -z "$BRANCH" ] && BRANCH="non-atomic-614"
+          [ -z "$BRANCH" ] && BRANCH="non-atomic-7.3.y"
           NL_BASE="https://nightly.link/$REPO/actions/runs/$RUN_ID"
 
           PLASMA_PD_URL="${{ needs.upload-non-atomic.outputs.plasma_url }}"

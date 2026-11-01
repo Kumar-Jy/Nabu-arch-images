@@ -4,6 +4,18 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 
 ---
 
+## [Build 2026-11-01]
+
+### ⚙️ Kernel & Boot
+- **Kernel 7.3.1-0:** Installer default moved to the 7.3 kernel series (`linux-nabu` / `linux-nabu-headers` from the `[nabu]` repo).
+
+### 🖥️ Desktop & Apps
+- **Plasma:** The full-size Plasma Keyboard add-on (`plasma-keyboard-full-layout`) is installed and enabled by default for the `user` account, with English and both Hindi layouts (`en_US`, `hi_IN`, `hi_IN_inscript`) available via the globe key.
+- **Plasma:** Removed `oskb` so the full-size Plasma Keyboard is the only on-screen keyboard.
+- **GNOME:** Added `evolution-data-server` to fix repeated `gnome-shell-calendar-server` crashes from missing `libecal`/`libedataserver` sonames.
+
+---
+
 ## [Build 2026-10-16]
 
 ### ⚙️ Kernel & Boot

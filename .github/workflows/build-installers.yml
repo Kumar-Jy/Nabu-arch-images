@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 7.2.10-1); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 7.3.1-0); empty = latest in [nabu] repo"
         type: string
-        default: "7.2.10-1"
+        default: "7.3.1-0"
         required: false
       nightly_kernel_url:
         description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
@@ -393,7 +393,10 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts flatpak gnome-software loupe gnome-text-editor
+          # evolution-data-server provides libecal/libedataserver, which
+          # gnome-shell-calendar-server links against but gnome-shell does not
+          # pull in as a hard dependency (it crashed on missing sonames).
+          pacman -S --noconfirm upower gdm gnome-menus gnome-backgrounds gnome-control-center gnome-keyring nautilus xdg-desktop-portal-gnome gnome-console pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts flatpak gnome-software loupe gnome-text-editor evolution-data-server
           pacman -S --noconfirm nabu-tablet-mode camera-studio system-monitor nabu-torch
           EOF
 
@@ -561,7 +564,7 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm upower bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm upower bluedevil breeze breeze-gtk discover drkonqi kde-gtk-config kdecoration kdeplasma-addons kinfocenter kscreen kwallet-pam plasma-browser-integration plasma-desktop plasma-nm plasma-pa plasma-systemmonitor plasma-vault plasma-workspace powerdevil print-manager qqc2-breeze-style sddm-kcm spectacle systemsettings xdg-desktop-portal-kde pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools noto-fonts plasma-keyboard gwenview konsole dolphin ark kate qt6-multimedia-ffmpeg flatpak sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup plasma-keyboard-full-layout
           systemctl --global enable nabu-autobrightness.service
           systemctl --global enable stylus-popup.service || true
           EOF
