@@ -11,6 +11,16 @@ on:
         description: "Plasma build run ID (empty = auto-detect latest)"
         type: string
         required: false
+  workflow_call:
+    inputs:
+      gnome_run_id:
+        type: string
+        required: false
+        default: ""
+      plasma_run_id:
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -87,17 +97,17 @@ jobs:
           if [ -n "$PLASMA_RUN_ID" ]; then
             echo "Uploading Plasma artifact..."
             curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$PLASMA_RUN_ID/Nabu-alarm-atomic-plasma-installer.zip"
-            PLASMA_RES=$(curl -s -T Nabu-alarm-atomic-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            PLASMA_RES=$(curl -s -T Nabu-alarm-atomic-plasma-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.dev/api/file/)
             PLASMA_PD_ID=$(echo "$PLASMA_RES" | jq -r '.id')
-            echo "plasma_url=https://pixeldrain.com/u/$PLASMA_PD_ID" >> $GITHUB_OUTPUT
+            echo "plasma_url=https://pixeldrain.dev/u/$PLASMA_PD_ID" >> $GITHUB_OUTPUT
             rm -f Nabu-alarm-atomic-plasma-installer.zip
           fi
           if [ -n "$GNOME_RUN_ID" ]; then
             echo "Uploading GNOME artifact..."
             curl -sLO "https://nightly.link/${{ github.repository }}/actions/runs/$GNOME_RUN_ID/Nabu-alarm-atomic-gnome-installer.zip"
-            GNOME_RES=$(curl -s -T Nabu-alarm-atomic-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            GNOME_RES=$(curl -s -T Nabu-alarm-atomic-gnome-installer.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.dev/api/file/)
             GNOME_PD_ID=$(echo "$GNOME_RES" | jq -r '.id')
-            echo "gnome_url=https://pixeldrain.com/u/$GNOME_PD_ID" >> $GITHUB_OUTPUT
+            echo "gnome_url=https://pixeldrain.dev/u/$GNOME_PD_ID" >> $GITHUB_OUTPUT
             rm -f Nabu-alarm-atomic-gnome-installer.zip
           fi
 
