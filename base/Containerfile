@@ -15,8 +15,15 @@ RUN set -eux; \
         'Server = http://eu.mirror.archlinuxarm.org/$arch/$repo' \
         'Server = http://us.mirror.archlinuxarm.org/$arch/$repo' \
         > /etc/pacman.d/mirrorlist; \
-    printf '%s\n' '#!/bin/bash' 'set -euo pipefail' 'for i in 1 2 3; do pacman --disable-download-timeout "$@" && break || sleep 10; done' > /usr/local/bin/pacman-retry; \
-    chmod +x /usr/local/bin/pacman-retry; \
+    printf '%s\n' \
+        '#!/bin/bash' \
+        'set -euo pipefail' \
+        'for i in 1 2 3; do' \
+        '    if pacman --disable-download-timeout "$@"; then exit 0; fi' \
+        '    sleep 10' \
+        'done' \
+        'exit 1' > /usr/bin/pacman-retry; \
+    chmod +x /usr/bin/pacman-retry; \
     pacman-retry -Syu --noconfirm; \
     pacman-retry -S --noconfirm \
         base glibc \
@@ -41,7 +48,7 @@ RUN set -eux; \
     pacman-key --populate archlinuxarm; \
     printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' >> /etc/pacman.conf; \
     pacman-key --populate; \
-    pacman-retry -R --noconfirm linux-aarch64 || true; \
+    if pacman -Q linux-aarch64 >/dev/null 2>&1; then pacman -R --noconfirm linux-aarch64; fi; \
     pacman-retry -Syu --noconfirm; \
     pacman-retry -S --noconfirm \
         linux-nabu \
@@ -108,7 +115,7 @@ RUN set -eux; \
     pacman -S --noconfirm sudo terminus-font btrfs-progs; \
     echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel; \
     systemctl disable sshd || true; \
-    pacman -S --noconfirm vulkan-freedreno || true
+    pacman -S --noconfirm vulkan-freedreno
 
 # --- Layer 4: ostree/sysroot layout ---
 RUN set -eux; \
@@ -134,11 +141,10 @@ RUN set -eux; \
 RUN set -eux; \
     systemctl enable bootc-fetch-apply-updates.service || true
 
-# --- Layer 6: Btrfs scrub + snapper + zram ---
+# --- Layer 6: Btrfs scrub + zram ---
 RUN set -eux; \
     systemctl enable btrfs-scrub@-.timer || true; \
-    pacman-retry -S --noconfirm snapper zram-generator || true; \
-    systemctl enable snapper-timeline.timer snapper-cleanup.timer || true
+    pacman-retry -S --noconfirm zram-generator
 
 # --- Layer 7: mkinitcpio ---
 RUN set -eux; \
@@ -148,7 +154,7 @@ RUN set -eux; \
 
 # --- Layer 8: Apply overlay (configs, scripts, services) ---
 ADD overlay/ /
-RUN chmod +x /usr/local/bin/pacman-retry 2>/dev/null || true; \
+RUN chmod +x /usr/bin/pacman-retry 2>/dev/null || true; \
     chmod +x /usr/libexec/nabu/bootc-uki-sync 2>/dev/null || true; \
     chmod +x /usr/libexec/nabu/bootc-boot-setup 2>/dev/null || true; \
     chmod +x /usr/lib/scripts/nabu-rw 2>/dev/null || true; \

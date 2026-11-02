@@ -169,18 +169,6 @@ sudo ostree admin pin 0               # pin current to prevent GC
 sudo ostree admin cleanup --keep=3    # remove old deployments
 ```
 
-### Btrfs snapshots
-
-Snapper covers `/home` only (OS rollback is handled by bootc):
-
-```bash
-sudo snapper list
-sudo snapper create -d "before risky change"
-sudo snapper -c root undochange 5..0
-```
-
-> ⚠️ Do **not** use `snapper rollback`. Use `bootc rollback` for OS rollbacks.
-
 ### System maintenance
 
 ```bash
