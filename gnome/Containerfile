@@ -1,9 +1,12 @@
-ARG BASE_IMAGE=ghcr.io/nabu-alarm/nabu-base:latest
+ARG BASE_IMAGE=ghcr.io/kumar-jy/nabu-base:latest
 FROM ${BASE_IMAGE}
 
 LABEL containers.bootc="1"
 LABEL ostree.bootable="true"
 
+# evolution-data-server provides libecal/libedataserver, which
+# gnome-shell-calendar-server links against but gnome-shell does not
+# pull in as a hard dependency (it crashed on missing sonames).
 # --- Install GNOME Desktop + dependencies ---
 RUN set -eux; \
     pacman-retry -Syu --noconfirm; \
@@ -15,13 +18,16 @@ RUN set -eux; \
         network-manager-applet \
         noto-fonts \
         firefox flatpak gnome-software \
-        geoclue; \
+        geoclue \
+        evolution-data-server \
+        nabu-tablet-mode camera-studio system-monitor nabu-torch; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
     pacman -Scc --noconfirm
 
 # --- Enable GDM + auto-login ---
 RUN systemctl enable gdm || true; \
+    systemctl enable nabu-tablet-mode.service || true; \
     mkdir -p /etc/gdm; \
     printf '[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=user\n' > /etc/gdm/custom.conf
 

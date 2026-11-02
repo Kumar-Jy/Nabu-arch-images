@@ -6,3 +6,22 @@ chown -R user:user /var/home/user/ 2>/dev/null || true
 
 # Ensure Flathub remote is available system-wide
 flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+
+# Enable the full-size Plasma Keyboard add-on for the default user out of the
+# box. The package's post_install only configures users that already have a
+# ~/.config/kwinrc, which a freshly built image does not.
+if [ -f /usr/local/share/applications/org.kde.plasma.keyboard.nabu.desktop ]; then
+    install -d -m 755 -o user -g user /var/home/user/.config
+    cat > /var/home/user/.config/kwinrc <<'EOF'
+[Wayland]
+InputMethod=/usr/local/share/applications/org.kde.plasma.keyboard.nabu.desktop
+VirtualKeyboardMode=2
+EOF
+    cat > /var/home/user/.config/plasmakeyboardrc <<'EOF'
+[General]
+enabledLocales=en_US,hi_IN,hi_IN_inscript
+EOF
+    chown -R user:user /var/home/user/.config
+    rm -rf /var/home/user/.local/share/plasma/keyboard
+fi
+

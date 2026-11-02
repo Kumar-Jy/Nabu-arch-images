@@ -1,5 +1,5 @@
 [Wallet]
-Enabled=false
+Enabled=true
 Close When Idle=false
 Close on Screensaver=false
 First Use=false

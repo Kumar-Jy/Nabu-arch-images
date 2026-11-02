@@ -35,10 +35,11 @@ RUN set -eux; \
     pacman -Scc --noconfirm
 
 # --- Layer 2: Nabu repos + kernel + firmware ---
+# linux-nabu tracks the [nabu] repo (currently the 7.3 series, 7.3.1).
 RUN set -eux; \
     pacman-key --init; \
     pacman-key --populate archlinuxarm; \
-    printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/Nabu-arch-images/releases/download/repo\n' >> /etc/pacman.conf; \
+    printf '\n[nabu]\nSigLevel = Never\nServer = https://github.com/Kumar-Jy/nabu-pkgs/releases/download/repo\n' >> /etc/pacman.conf; \
     pacman-key --populate; \
     pacman-retry -R --noconfirm linux-aarch64 || true; \
     pacman-retry -Syu --noconfirm; \

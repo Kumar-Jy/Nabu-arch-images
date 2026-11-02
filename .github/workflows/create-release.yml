@@ -126,6 +126,10 @@ jobs:
           cat > release-notes.md << BODY
           Built images (bootc/ostree atomic updates)
 
+          - Kernel: `linux-nabu` 7.3.1
+          - Plasma: full-size Plasma Keyboard add-on enabled by default (English + Hindi layouts)
+          - GNOME: `evolution-data-server` included (fixes `gnome-shell-calendar-server` crashes)
+
           BODY
           if [ -n "$GNOME_RUN_ID" ]; then
             echo "- GNOME" >> release-notes.md

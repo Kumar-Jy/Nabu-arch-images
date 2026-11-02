@@ -1,0 +1,3 @@
+[Wayland]
+InputMethod=/usr/local/share/applications/org.kde.plasma.keyboard.nabu.desktop
+VirtualKeyboardMode=2

@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/nabu-alarm/nabu-base:latest
+ARG BASE_IMAGE=ghcr.io/kumar-jy/nabu-base:latest
 FROM ${BASE_IMAGE}
 
 LABEL containers.bootc="1"
@@ -19,13 +19,16 @@ RUN set -eux; \
         plasma-vault plasma-workspace plasma-workspace-wallpapers \
         polkit-kde-agent powerdevil print-manager qqc2-breeze-style sddm-kcm \
         spectacle systemsettings xdg-desktop-portal xdg-desktop-portal-kde pipewire pipewire-pulse \
-        noto-fonts plasma-keyboard gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak \
-        xdg-user-dirs; \
+        noto-fonts plasma-keyboard plasma-keyboard-full-layout gwenview konsole dolphin firefox qt6-multimedia-ffmpeg flatpak \
+        xdg-user-dirs \
+        nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     pacman -Scc --noconfirm
 
 # --- Enable SDDM + auto-login ---
 RUN systemctl enable sddm || true; \
+    systemctl enable nabu-tablet-mode.service || true; \
+    systemctl --global enable nabu-autobrightness.service stylus-popup.service || true; \
     mkdir -p /etc/sddm.conf.d; \
     printf '[Autologin]\nUser=user\nSession=plasma\n' > /etc/sddm.conf.d/autologin.conf
 

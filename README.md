@@ -19,7 +19,7 @@ Arch Linux ARM with **bootc** (ostree-based) updates for the Xiaomi Pad 5 (Snapd
 
 - Xiaomi Pad 5 with an unlocked bootloader
 - [TWRP](https://github.com/Kumar-Jy/twrp_device_xiaomi_nabu/releases/tag/mod-hybrid) custom recovery
-- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-installer/releases)
+- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases/tag/arch-atomic)
 
 ### Partition layout
 
