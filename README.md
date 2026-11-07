@@ -28,11 +28,11 @@
 
 | Category | Hardware Feature | Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate |
+| **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz / 60Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate and seamless 60Hz mode switching |
 | **Touch** | Capacitive Multi-touch | ✅ Working | 10-point multi-touch supported out of the box |
 | **Graphics** | 3D GPU Acceleration (Adreno 640) | ✅ Working | Mesa Turnip (Vulkan 1.3) & Freedreno (OpenGL 4.6) |
 | **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 decode (H.264, HEVC, VP9) via `iris-vaapi` with `mpv` and `vlc-nabu` |
-| **Audio** | Quad Stereo Speakers | ✅ Working | Cirrus Logic CS35L41 quad amplifiers, ALSA UCM + PipeWire |
+| **Audio** | Quad Stereo Speakers & Headphone | ✅ Working | Cirrus Logic CS35L41 quad amplifiers, wired 3.5mm headphone playback DAI, ALSA UCM + PipeWire |
 | **Microphone** | Built-in Mic Array | ✅ Working | Clear audio recording via PipeWire |
 | **Camera (Rear)** | 13MP OmniVision OV13B10 | ✅ Working | `camera-studio` / libcamera with VCM autofocus |
 | **Camera (Front)** | 8MP OmniVision OV8856 | ✅ Working | `camera-studio` with upright orientation correction |
@@ -45,7 +45,7 @@
 | **Stylus (Input)** | Xiaomi Smart Pen (Drawing & Input) | ✅ Working | 4096 pressure levels, tilt, hover, and dual barrel buttons via `NVTCapacitivePen` |
 | **Stylus (Charging)** | Wireless Magnetic Pen Charging | ✅ Working | Supported via IDT P9418 driver (integrated in 7.3 kernel) |
 | **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
-| **Battery & Power** | Battery Telemetry & Charging | ✅ Working | PM8150B charger driver, battery gauge, 15W USB-PD and QC charging |
+| **Battery & Power** | Battery Telemetry & Fast Charging | ✅ Working | PM8150B BMS charger driver, LN8000 33W direct fast charge, battery gauge, 15W-27W USB-PD and QC charging |
 | **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
 | **USB** | USB Type-C 2.0 & OTG | ✅ Working | Flash drives, mice, keyboards, hubs supported |
 | **External Display** | USB DisplayLink Output | ✅ Working | Supported with DisplayLink docks (`displaylink` + `evdi`) |

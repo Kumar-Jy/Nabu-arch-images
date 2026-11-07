@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       kernel_version:
-        description: "Kernel version to install (e.g. 7.3.1-1); empty = latest in [nabu] repo"
+        description: "Kernel version to install (e.g. 7.3.3-0); empty = latest in [nabu] repo"
         type: string
-        default: "7.3.1-1"
+        default: "7.3.3-0"
         required: false
       nightly_kernel_url:
         description: "URL to a ZIP containing kernel/headers (nightly.link); empty = use repo/version"
