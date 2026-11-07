@@ -59,7 +59,7 @@ ip link show wlan0
  
 **Symptoms:** stuck at rEFInd / black screen, or boot error `Timed out waiting for device /dev/disk/by-partlabel/linux`.
  
-### 🛠️ Fix from TWRP
+### 🛠️ Fix from TWRP (Dual/Triple Boot with linux & esp partitions)
  
 If a kernel update broke booting or you need to install/downgrade a kernel offline:
  
@@ -82,6 +82,33 @@ ln -sf /proc/self/fd /linux/dev/fd
 # Regenerate UKI boot image
 TMPDIR=/tmp PATH=/usr/bin:/bin chroot /linux /usr/libexec/nabu/uki-regenerate
  
+# Unmount and reboot
+umount /linux/boot/efi /linux/dev/pts /linux/dev /linux/sys /linux/proc
+reboot
+```
+
+### 🛠️ Fix from TWRP (Single-Boot with userdata & cust partitions)
+
+If rootfs was flashed to `userdata` and ESP to `cust`, older kernel UKIs expect `/dev/disk/by-partlabel/linux`. To fix this offline from TWRP:
+
+```bash
+adb shell
+mount /dev/block/by-name/userdata /linux
+mount /dev/block/by-name/cust /linux/boot/efi
+mount -t proc proc /linux/proc
+mount -t sysfs sys /linux/sys
+mount --bind /dev /linux/dev
+mount -t devpts devpts /linux/dev/pts
+ln -sf /proc/self/fd /linux/dev/fd
+
+# Update cmdline and fstab to target userdata and cust
+echo "root=PARTLABEL=userdata rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off" > /linux/etc/cmdline.d/root.conf
+sed -i 's/PARTLABEL=linux/PARTLABEL=userdata/' /linux/etc/fstab
+sed -i 's/PARTLABEL=esp/PARTLABEL=cust/' /linux/etc/fstab
+
+# Regenerate UKI boot image
+TMPDIR=/tmp PATH=/usr/bin:/bin chroot /linux /usr/libexec/nabu/uki-regenerate
+
 # Unmount and reboot
 umount /linux/boot/efi /linux/dev/pts /linux/dev /linux/sys /linux/proc
 reboot

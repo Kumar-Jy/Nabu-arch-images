@@ -30,7 +30,7 @@ fi
 
 if [ -f /etc/mkinitcpio.conf ]; then
   sed -i -e 's/ autodetect//g' -e 's/ microcode//g' /etc/mkinitcpio.conf
-  sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /etc/mkinitcpio.conf
+  sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd /etc/udev/rules.d/99-nabu-partlabel.rules /usr/lib/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
 fi
 
 IGNORE_PKGS="linux-nabu linux-nabu-headers"

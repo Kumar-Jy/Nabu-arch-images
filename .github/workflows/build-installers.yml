@@ -268,7 +268,7 @@ jobs:
         run: |
           sudo arch-chroot ./mountpoint bash - <<'EOF'
           sed -i -e "s/ autodetect//g" -e "s/ microcode//g" /etc/mkinitcpio.conf
-          sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd)|' /etc/mkinitcpio.conf
+          sed -i 's|^FILES=.*|FILES=(/etc/shadow /etc/passwd /etc/udev/rules.d/99-nabu-partlabel.rules /usr/lib/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
           EOF
 
       - name: Generate UKI

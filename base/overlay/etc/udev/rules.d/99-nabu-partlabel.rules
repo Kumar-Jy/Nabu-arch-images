@@ -1,0 +1,5 @@
+# Xiaomi Pad 5 (nabu) partition compatibility symlinks for single-boot / non-repartitioned devices.
+# Maps userdata -> linux and cust -> esp so standard boot cmdline (root=PARTLABEL=linux) and fstab work out of the box.
+
+ENV{ID_PART_ENTRY_NAME}=="userdata", ENV{ID_FS_TYPE}=="ext4", TEST!="/dev/disk/by-partlabel/linux", SYMLINK+="disk/by-partlabel/linux"
+ENV{ID_PART_ENTRY_NAME}=="cust", ENV{ID_FS_TYPE}=="vfat", TEST!="/dev/disk/by-partlabel/esp", SYMLINK+="disk/by-partlabel/esp"
