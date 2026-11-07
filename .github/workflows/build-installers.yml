@@ -38,7 +38,7 @@ jobs:
         run: |
           echo "::group::Create image"
           truncate -s 20G ./rootfs.img
-          mkfs.ext4 ./rootfs.img
+          mkfs.ext4 -L arch-root ./rootfs.img
           echo "::endgroup::"
           echo "::group::Mount image"
           mkdir mountpoint
@@ -451,6 +451,7 @@ jobs:
           resize2fs rootfs.img -M
           mkdir -p ./images
           mv ./rootfs.img ./images/
+          cp ./repo/base/overlay/opt/nabu/alohauefi.img ./images/alohauefi.img
           mv ./repo/bin ./bin
           mv ./repo/DBKP ./DBKP
           mv ./repo/META-INF ./META-INF
@@ -487,6 +488,14 @@ jobs:
             efi
             installer
             META-INF
+          retention-days: 90
+          compression-level: 5
+
+      - name: Upload Aloha UEFI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nabu-aloha-uefi
+          path: ./repo/base/overlay/opt/nabu/alohauefi.img
           retention-days: 90
           compression-level: 5
 
@@ -620,6 +629,7 @@ jobs:
           resize2fs rootfs.img -M
           mkdir -p ./images
           mv ./rootfs.img ./images/
+          cp ./repo/base/overlay/opt/nabu/alohauefi.img ./images/alohauefi.img
           mv ./repo/bin ./bin
           mv ./repo/DBKP ./DBKP
           mv ./repo/META-INF ./META-INF

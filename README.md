@@ -8,6 +8,8 @@
 - [Requirements](#requirements)
 - [Hardware Support Status](#hardware-support-status)
 - [Installation](#installation)
+  - [Method 1: Single Boot (Fastboot / Standalone Linux)](#method-1-single-boot-fastboot--standalone-linux)
+  - [Method 2: Dual / Triple Boot (via TWRP Recovery)](#method-2-dual--triple-boot-via-twrp-recovery)
 - [Updating the Kernel](#updating-the-kernel)
 - [Troubleshooting](#troubleshooting)
 - [Credit & Thanks](#credit--thanks)
@@ -56,7 +58,49 @@
 
 ## Installation
 
-### Creating Partitions (if not already present)
+### Method 1: Single Boot (Fastboot / Standalone Linux)
+
+This method flashes Arch Linux ARM as the sole operating system on your tablet directly from your PC via **Fastboot** (no TWRP or repartitioning needed).
+
+1. **Download the installer**:
+   - Get the installer ZIP from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases) (e.g. `nabu-plasma-installer.zip` or `nabu-gnome-installer.zip`), or download via the CLI scripts (`get-plasma.sh` / `get-gnome.sh`).
+2. **Unzip the installer** on your computer.
+3. **Reboot the tablet into Fastboot Mode**:
+   - Power off your tablet, then hold **Power + Volume Down** until the FASTBOOT screen appears.
+   - Connect the tablet to your computer via USB.
+4. **Flash using the automated script**:
+   - **Linux / macOS**:
+     ```bash
+     chmod +x flash-linux.sh
+     ./flash-linux.sh
+     ```
+   - **Windows**: Double-click `flash-linux.bat`
+
+#### 🛠️ Manual Fastboot Commands
+If you prefer running the commands manually:
+```bash
+# 1. Flash Aloha UEFI to the boot partition (both slots)
+fastboot flash boot_ab images/alohauefi.img
+
+# 2. Flash ESP to the cust partition
+fastboot flash cust images/esp.img
+
+# 3. Flash rootfs to the userdata partition
+fastboot flash userdata images/rootfs.img
+
+# 4. Reboot into Arch Linux
+fastboot reboot
+```
+> [!NOTE]
+> `alohauefi.img` is included directly in the installer `images/` directory and is also available as a standalone download from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases).
+
+---
+
+### Method 2: Dual / Triple Boot (via TWRP Recovery)
+
+For dual-booting with Android or triple-booting with Windows and Android.
+
+#### Creating Partitions (if not already present)
 
 If your device doesn't have the required `esp` and `linux` partitions, create them first:
 
@@ -77,38 +121,24 @@ If your device doesn't have the required `esp` and `linux` partitions, create th
 
 5. Proceed to the installation steps below.
 
-### Triple Boot (Windows + Android + Linux)
+#### Triple Boot (Windows + Android + Linux)
 
 1. **Install Windows first** — Set up Windows on the `win` partition
 2. **Return to Android** — Boot back into Android to ensure it's working
 3. **Flash the Linux installer** — Boot into TWRP and flash the Arch Linux installer zip
 4. **Reboot** — rEFInd will show all three boot options (Windows, Android, Linux)
 
-### Arch Linux Install (Single Boot or Dual Boot)
+#### Flashing Installer in TWRP
 
-1. **Download** the latest installer from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases):
-   - `arch-nabu-installer-plasma.zip` — Plasma Desktop
-   - `arch-nabu-installer-gnome.zip` — GNOME Desktop
-
-2. **Boot into TWRP**: Power off the tablet, hold **Power + Volume Up**
-
-3. **Flash the installer zip**: In TWRP, tap **Install**, navigate to the zip, swipe to confirm
-
-4. **What the installer does**:
+1. **Boot into TWRP**: Power off the tablet, hold **Power + Volume Up**
+2. **Flash the installer zip**: In TWRP, tap **Install**, navigate to the zip, swipe to confirm
+3. **What the installer does**:
    - Formats `/dev/block/by-name/linux` with ext4
    - Extracts the rootfs image onto the partition
    - Patches the `boot` partition with DBKP + UEFI payload
    - Sets up ESP with rEFInd and the Unified Kernel Image
-
-5. **Reboot**: Select **Reboot > System**
-
-6. **Default credentials**: `user` / `123456`
-
-### Dual/Triple Boot with Android/Windows
-
-- The `boot` partition is patched with DualBootKernelPatcher + UEFI payload
-- On first UEFI boot, `installer/install.bat` runs in WinPE to reconfigure Windows BCD
-- rEFInd provides a boot menu to choose between Android, Arch Linux and Windows
+4. **Reboot**: Select **Reboot > System**
+5. **Default credentials**: `user` / `123456`
 
 ---
 

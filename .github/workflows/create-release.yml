@@ -171,6 +171,7 @@ jobs:
 
           > **Attached Release Assets:**
           > - \`nabu-arch-rEFInd.zip\` — Multi-boot UEFI bootloader
+          > - \`alohauefi.img\` — Aloha UEFI boot image for single-boot / fastboot flashing
           > - \`get-plasma.sh\` / \`get-gnome.sh\` — Direct CLI download scripts
 
           BODY
@@ -253,12 +254,17 @@ jobs:
           echo 'echo "Saved: nabu-plasma-installer.zip"' >> scripts-tmp/get-plasma.sh
           chmod +x scripts-tmp/get-plasma.sh
 
-      - name: Download rEFInd zip
+      - name: Prepare standalone release assets
         run: |
           RUN_ID="${{ needs.upload-non-atomic.outputs.run_id }}"
           REPO="${{ github.repository }}"
-          mkdir -p refind-zips
-          curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/nabu-arch-rEFInd.zip" -o refind-zips/nabu-arch-rEFInd.zip
+          mkdir -p release-assets
+          curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/nabu-arch-rEFInd.zip" -o release-assets/nabu-arch-rEFInd.zip || true
+          if [ -f base/overlay/opt/nabu/alohauefi.img ]; then
+            cp base/overlay/opt/nabu/alohauefi.img release-assets/alohauefi.img
+          else
+            curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/alohauefi.img" -o release-assets/alohauefi.img || true
+          fi
 
       - name: Update release
         env:
@@ -268,7 +274,7 @@ jobs:
           sleep 2
 
           files=""
-          for f in scripts-tmp/get-*.sh refind-zips/*.zip; do
+          for f in scripts-tmp/get-*.sh release-assets/*; do
             [ -f "$f" ] && files="$files $f"
           done
 

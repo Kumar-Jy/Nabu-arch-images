@@ -84,7 +84,7 @@ echo "Regenerating UKI for kernel ${kernver}..."
 # older images shipped in root.conf so it never survives on a fresh install.
 if [ ! -f /etc/cmdline.d/root.conf ]; then
     mkdir -p /etc/cmdline.d
-    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' > /etc/cmdline.d/root.conf
+    printf 'root=LABEL=arch-root rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' > /etc/cmdline.d/root.conf
 else
     sed -i -e 's/ modprobe.blacklist=venus_core,qcom_iris//' \
            -e 's/ module_blacklist=venus_core,qcom_iris//' \
@@ -140,9 +140,13 @@ ESP="/boot/efi"
 if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     echo "ESP not mounted at $ESP, attempting mount..."
     mkdir -p "$ESP"
-    if ! mount PARTLABEL=esp "$ESP" 2>/dev/null \
+    if ! mount LABEL=ESPNABU "$ESP" 2>/dev/null \
+        && ! mount PARTLABEL=esp "$ESP" 2>/dev/null \
         && ! mount /dev/disk/by-partlabel/esp "$ESP" 2>/dev/null \
-        && ! mount /dev/block/by-name/esp "$ESP" 2>/dev/null; then
+        && ! mount /dev/block/by-name/esp "$ESP" 2>/dev/null \
+        && ! mount PARTLABEL=cust "$ESP" 2>/dev/null \
+        && ! mount /dev/disk/by-partlabel/cust "$ESP" 2>/dev/null \
+        && ! mount /dev/block/by-name/cust "$ESP" 2>/dev/null; then
         echo "WARNING: could not mount ESP at $ESP; verify the output UKI path" >&2
     fi
 fi
