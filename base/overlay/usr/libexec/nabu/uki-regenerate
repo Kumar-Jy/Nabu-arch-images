@@ -84,7 +84,7 @@ echo "Regenerating UKI for kernel ${kernver}..."
 # older images shipped in root.conf so it never survives on a fresh install.
 if [ ! -f /etc/cmdline.d/root.conf ]; then
     mkdir -p /etc/cmdline.d
-    printf 'root=LABEL=arch-root rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' > /etc/cmdline.d/root.conf
+    printf 'root=PARTLABEL=linux rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' > /etc/cmdline.d/root.conf
 else
     sed -i -e 's/ modprobe.blacklist=venus_core,qcom_iris//' \
            -e 's/ module_blacklist=venus_core,qcom_iris//' \

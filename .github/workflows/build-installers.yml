@@ -38,7 +38,7 @@ jobs:
         run: |
           echo "::group::Create image"
           truncate -s 20G ./rootfs.img
-          mkfs.ext4 -L arch-root ./rootfs.img
+          mkfs.ext4 ./rootfs.img
           echo "::endgroup::"
           echo "::group::Mount image"
           mkdir mountpoint
