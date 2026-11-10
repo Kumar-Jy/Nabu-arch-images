@@ -4,6 +4,7 @@
 
 Arch Linux ARM with **bootc** (ostree-based) updates for the Xiaomi Pad 5 (Snapdragon 860). Supports dual/triple-boot with Android/Windows via DBKP and UEFI, as well as standalone single-boot via Aloha UEFI and Fastboot.
 
+- [Overview: What is Arch Atomic?](#overview-what-is-arch-atomic)
 - [Requirements](#requirements)
 - [Hardware Support Status](#hardware-support-status)
 - [Installation](#installation)
@@ -15,6 +16,45 @@ Arch Linux ARM with **bootc** (ostree-based) updates for the Xiaomi Pad 5 (Snapd
 - [Troubleshooting](#troubleshooting)
 - [Building from Source](#building-from-source)
 - [Credit & Thanks](#credit--thanks)
+
+---
+
+## Overview: What is Arch Atomic?
+
+Arch Atomic is an **immutable, container-native Arch Linux distribution** (similar in philosophy to **SteamOS on the Steam Deck** or **Fedora Silverblue/Kinoite**), packaged specifically for the Xiaomi Pad 5 using **`bootc`** and **OSTree**.
+
+| System Component | Mutability | How It Works |
+| :--- | :---: | :--- |
+| **System Core (`/usr`, `/bin`, `/lib`)** | 🔒 **Read-Only (Immutable)** | Backed by an OCI container image (`ghcr.io/kumar-jy/nabu-plasma` / `nabu-gnome`). Cannot be corrupted by partial updates, broken dependencies, or accidental file edits. |
+| **System Config (`/etc`)** | ✏️ **Writable & Persistent** | Machine-local settings (Wi-Fi, timezone, accounts) persist naturally across reboots and OS upgrades via OSTree's 3-way merge. |
+| **User Data (`/home`, `/var`)** | ✏️ **Writable & Persistent** | `/home` symlinks to `/var/home`. All user documents, settings, downloads, and Flatpak applications remain permanently untouched by OS updates. |
+| **Boot & Kernel (`/boot/efi`)** | ⚡ **Atomic UKI Sync** | Kernel, initramfs, and Device Tree are baked into a Unified Kernel Image (UKI) and synchronized on every upgrade. |
+
+### 🚀 Key Highlights for Users:
+
+1. **Atomic Updates & Instant Rollbacks (Zero Risk of Brick)**:
+   - System updates download as complete, tested container images in the background (`sudo bootc upgrade --apply`).
+   - If an update ever breaks anything, revert back to the previous working snapshot instantly with a single command:
+     ```bash
+     sudo bootc rollback
+     ```
+2. **How to Install Software**:
+   - **Desktop GUI Apps**: Install cleanly via **Flatpak** from Flathub (pre-configured):
+     ```bash
+     flatpak install flathub org.mozilla.firefox
+     ```
+   - **CLI / Development Tools**: Use **Distrobox** to spin up standard mutable Arch Linux environments in your terminal without modifying the host OS:
+     ```bash
+     distrobox create --name arch --image docker.io/menci/archlinuxarm:latest
+     distrobox enter arch
+     ```
+   - **Custom Container Images**: You can fork the image, add packages in a `Containerfile`, and switch to your own build (`sudo bootc switch <image>`).
+   - **Temporary Pacman Testing**: `sudo bootc usr-overlay` allows temporary `pacman -S` testing that safely clears on reboot.
+3. **Full Xiaomi Pad 5 Hardware Integration**:
+   - Ships Linux **7.3.3-3** with tuned Novatek 120Hz/60Hz refresh rates, LN8000 33W fast charging, Smart Pen stylus, and quad-speaker ALSA/PipeWire audio.
+   - Bundles **`iris-vaapi`** for hardware-accelerated video decoding.
+   - Built-in SLPI sensor proxying for automatic screen rotation and ambient light sensing.
+   - Aloha UEFI payload bundled for automatic Single-Boot and Dual-Boot fastboot flashing.
 
 ---
 
