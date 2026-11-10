@@ -28,15 +28,8 @@ if mountpoint -q "$LOCALTIME" 2>/dev/null; then
     umount "$LOCALTIME" 2>/dev/null || true
 fi
 
-if ln -sf "$ZONEINFO_DIR/$TZ" "$LOCALTIME" 2>/dev/null; then
-    echo "Timezone set to $TZ (symlinked)"
-else
-    mount --bind "$ZONEINFO_DIR/$TZ" "$LOCALTIME"
-    echo "Timezone set to $TZ (bind-mounted)"
-fi
-
-nabu-rw on 2>/dev/null || true
+rm -f "$LOCALTIME"
+ln -sf "$ZONEINFO_DIR/$TZ" "$LOCALTIME"
 timedatectl set-timezone "$TZ" 2>/dev/null || true
-nabu-rw off 2>/dev/null || true
 
-echo "Timezone '$TZ' saved persistently. Will survive reboots and bootc updates."
+echo "Timezone '$TZ' set successfully. Will survive reboots and bootc updates."

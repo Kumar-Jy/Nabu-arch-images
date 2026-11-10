@@ -22,7 +22,7 @@ if [ -z "$CURRENT_OSTREE" ]; then
     CURRENT_OSTREE=$(ostree admin --sysroot=/ --print-current-dir 2>/dev/null || echo "")
 fi
 if [ -n "$CURRENT_OSTREE" ]; then
-    echo "root=PARTLABEL=linux ostree=${CURRENT_OSTREE} rw" > /etc/cmdline.d/root.conf
+    echo "root=PARTLABEL=linux ostree=${CURRENT_OSTREE} rw systemd.gpt_auto=no fbcon=rotate:1 quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3 vt.global_cursor_default=0 cryptomgr.notests" > /etc/cmdline.d/root.conf
 fi
 
 # Update mkinitcpio preset with correct kver
@@ -43,7 +43,7 @@ if [ -f /usr/lib/kernel/uki.conf ]; then
 fi
 
 if [ -f /etc/mkinitcpio.conf ]; then
-    sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
+    sed -i 's|^FILES=.*|FILES=(/usr/lib/ostree/prepare-root.conf /etc/ostree/prepare-root.conf /usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
 fi
 
 # Ensure ESP is mounted

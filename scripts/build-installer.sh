@@ -121,7 +121,7 @@ PRESET
   sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-\$kernver|" usr/lib/kernel/uki.conf
 fi
 
-sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' etc/mkinitcpio.conf 2>/dev/null || true
+sed -i 's|^FILES=.*|FILES=(/usr/lib/ostree/prepare-root.conf /etc/ostree/prepare-root.conf /usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' etc/mkinitcpio.conf 2>/dev/null || true
 
 chown -R ${DM_USER}:${DM_USER} var/lib/${DM_USER}/.config/ 2>/dev/null || true
 
@@ -135,7 +135,7 @@ echo "::endgroup::"
 
 echo "::group::Fix kernel cmdline"
 sudo tee "./mountpoint${DEPLOY_REL}/etc/cmdline.d/root.conf" > /dev/null << CMDLINE
-root=PARTLABEL=linux ostree=${BOOT_LINK_PATH} rw
+root=PARTLABEL=linux ostree=${BOOT_LINK_PATH} rw systemd.gpt_auto=no fbcon=rotate:1 quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3 vt.global_cursor_default=0 cryptomgr.notests
 CMDLINE
 echo "::endgroup::"
 

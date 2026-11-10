@@ -19,5 +19,5 @@ PRESET
 fi
 
 if [ -f /etc/mkinitcpio.conf ]; then
-  sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
+  sed -i 's|^FILES=.*|FILES=(/usr/lib/ostree/prepare-root.conf /etc/ostree/prepare-root.conf /usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
 fi

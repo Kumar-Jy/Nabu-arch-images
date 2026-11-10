@@ -123,8 +123,9 @@ RUN set -eux; \
 RUN set -eux; \
     systemctl enable NetworkManager bluetooth systemd-timesyncd systemd-timedated polkit || true; \
     systemctl enable ostree-remount.service 2>/dev/null || true; \
-    mkdir -p /etc/ostree /sysroot /sysroot/ostree; \
-    printf '[sysroot]\ncomposefs=false\n' > /etc/ostree/prepare-root.conf; \
+    mkdir -p /etc/ostree /usr/lib/ostree /sysroot /sysroot/ostree; \
+    printf '[sysroot]\nreadonly=true\ncomposefs=false\n' > /etc/ostree/prepare-root.conf; \
+    cp /etc/ostree/prepare-root.conf /usr/lib/ostree/prepare-root.conf; \
     ln -sfn sysroot/ostree /ostree; \
     rm -rf /home /root /srv /opt /mnt /usr/local; \
     ln -sf var/home /home; \
@@ -133,10 +134,12 @@ RUN set -eux; \
     ln -sf var/opt /opt; \
     ln -sf var/mnt /mnt; \
     ln -sf ../var/usrlocal /usr/local; \
-    mkdir -p /var/home/user; \
-    chown user:user /var/home/user; \
+    mkdir -p /var/home/user /var/mnt/vendor/persist; \
+    cp -a /etc/skel/. /var/home/user/ 2>/dev/null || true; \
+    chown -R user:user /var/home/user; \
     chmod 0755 /var/home/user; \
-    printf 'd /var/home 0755 root root -\nd /var/home/user 0755 user user -\nd /var/roothome 0700 root root -\nd /var/srv 0755 root root -\nd /var/opt 0755 root root -\nd /var/mnt 0755 root root -\n' \
+    ln -sfn ../usr/share/zoneinfo/UTC /etc/localtime; \
+    printf 'd /var/home 0755 root root -\nd /var/home/user 0755 user user -\nd /var/roothome 0700 root root -\nd /var/srv 0755 root root -\nd /var/opt 0755 root root -\nd /var/mnt 0755 root root -\nd /var/mnt/vendor/persist 0755 root root -\n' \
         > /usr/lib/tmpfiles.d/bootc-base-dirs.conf
 
 # --- Layer 5: bootc update service ---
@@ -152,7 +155,7 @@ RUN set -eux; \
 RUN set -eux; \
     sed -i 's|^MODULES=.*|MODULES=(btrfs vfat ext4 xfs erofs)|g' /etc/mkinitcpio.conf; \
     sed -i 's|^HOOKS=.*|HOOKS=(systemd autodetect modconf kms keyboard keymap consolefont block filesystems fsck ostree)|g' /etc/mkinitcpio.conf; \
-    sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|g' /etc/mkinitcpio.conf; \
+    sed -i 's|^FILES=.*|FILES=(/usr/lib/ostree/prepare-root.conf /etc/ostree/prepare-root.conf /usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|g' /etc/mkinitcpio.conf; \
     mkdir -p /boot/efi
 
 # --- Layer 8: Apply overlay (configs, scripts, services) ---

@@ -15,6 +15,12 @@ All notable changes to **Arch Linux ARM (Atomic / bootc) for Xiaomi Pad 5 (nabu)
 - **Aloha UEFI & Standalone Single-Boot:** Bundled `alohauefi.img` into installer images.
   - Added partition compatibility udev rules (`99-nabu-partlabel.rules`) mapped into UKI initramfs to dynamically resolve Btrfs `linux` and FAT32 `esp` partitions whether flashed onto `userdata`/`cust` (single-boot) or `linux`/`esp` (dual-boot).
   - Updated `flash-linux.sh` and `flash-linux.bat` to detect and flash either single-boot or dual-boot layouts automatically.
+- **Date, Time & Writable `/etc` Fix:** Configured `[sysroot] readonly = true` in `prepare-root.conf` and embedded into initramfs so `ostree-prepare-root` automatically provisions a persistent, writable bind-mount for `/etc` and `/var`.
+  - Added Polkit rule (`49-nopasswd-date-time.rules`) allowing `wheel` desktop users to change time, timezone, and NTP in GNOME and KDE Settings without authentication errors.
+  - Removed faulty `mount --bind` logic from `timezone-setup` and `nabu-set-timezone`, allowing native `timedatectl` and GUI timezone changes to persist seamlessly across reboots.
+- **Hardware Calibration & Sensor Telemetry:** Mounted `/mnt/vendor/persist` in `/etc/fstab` so DSP sensors (`sns_reg.conf`) and Wi-Fi drivers can access factory calibration.
+- **Wi-Fi Persistent MAC Fix:** Updated `nabu-pmac-set` to safely bring the wireless interface down before updating the MAC address and re-upping it.
+- **Complete Boot Cmdline:** Preserved `fbcon=rotate:1`, `systemd.gpt_auto=no`, `quiet loglevel=3`, and `cryptomgr.notests` across UKI sync and build-installer stages.
 
 ### 🖥️ Desktop & Hardware Parity
 - **Hardware Video Decode:** Included `iris-vaapi` driver in `base/Containerfile` for hardware-accelerated video playback in browsers and media players.

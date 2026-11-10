@@ -1,0 +1,10 @@
+/* Allow members of the wheel group to manage time and timezone without authentication */
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.timedate1.set-time" ||
+         action.id == "org.freedesktop.timedate1.set-timezone" ||
+         action.id == "org.freedesktop.timedate1.set-local-rtc" ||
+         action.id == "org.freedesktop.timedate1.set-ntp") &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

@@ -5,5 +5,6 @@
 # the ESP mount is listed here; btrfs subvolume mounts are handled by
 # ostree instead.
 #
-# <file system>  <mount point>      <type> <options>                                <dump>  <pass>
-PARTLABEL=esp    /boot/efi/         vfat   fmask=0022,dmask=0022                    0 1
+# <file system>   <mount point>        <type> <options>                                <dump>  <pass>
+PARTLABEL=esp     /boot/efi/           vfat   fmask=0022,dmask=0022                    0 1
+PARTLABEL=persist /mnt/vendor/persist  ext4   ro,noatime,nofail                        0 2
