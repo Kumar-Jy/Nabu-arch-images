@@ -2,24 +2,103 @@
 
 ![Arch Linux Arm on the Xiaomi Pad 5 (nabu)](nabu_alarm.jpg)
 
-Arch Linux ARM with **bootc** (ostree-based) updates for the Xiaomi Pad 5 (Snapdragon 860). Supports dual/triple-boot with Android/Windows via DBKP and UEFI.
+Arch Linux ARM with **bootc** (ostree-based) updates for the Xiaomi Pad 5 (Snapdragon 860). Supports dual/triple-boot with Android/Windows via DBKP and UEFI, as well as standalone single-boot via Aloha UEFI and Fastboot.
 
+- [Requirements](#requirements)
+- [Hardware Support Status](#hardware-support-status)
 - [Installation](#installation)
+  - [Method 1: Single Boot (Fastboot / Standalone Linux)](#method-1-single-boot-fastboot--standalone-linux)
+  - [Method 2: Dual / Triple Boot (via TWRP Recovery)](#method-2-dual--triple-boot-via-twrp-recovery)
 - [First Boot & Post-Install](#first-boot--post-install)
 - [Managing the System](#managing-the-system)
 - [Container Images](#container-images)
 - [Troubleshooting](#troubleshooting)
 - [Building from Source](#building-from-source)
+- [Credit & Thanks](#credit--thanks)
+
+---
+
+## Requirements
+
+- Xiaomi Pad 5 (nabu)
+- Unlocked bootloader
+- USB Type-C cable and a PC (Linux, macOS, or Windows)
+- [TWRP](https://github.com/Kumar-Jy/twrp_device_xiaomi_nabu/releases/tag/mod-hybrid) custom recovery (only needed for Method 2 Dual/Triple boot)
+- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases/tag/arch-atomic)
+
+---
+
+## Hardware Support Status
+
+| Category | Hardware Feature | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **Display** | 2.5K WQHD+ LCD (2560x1600 @ 120Hz / 60Hz) | ✅ Working | Novatek NT36523 panel driver, smooth 120Hz refresh rate and seamless 60Hz mode switching |
+| **Touch** | Capacitive Multi-touch | ✅ Working | 10-point multi-touch supported out of the box |
+| **Graphics** | 3D GPU Acceleration (Adreno 640) | ✅ Working | Mesa Turnip (Vulkan 1.3) & Freedreno (OpenGL 4.6) |
+| **Video Decode** | Hardware Video Acceleration | ✅ Working | Iris/Venus V4L2 decode (H.264, HEVC, VP9) via `iris-vaapi` with `mpv` and browsers |
+| **Audio** | Quad Stereo Speakers & Headphone | ✅ Working | Cirrus Logic CS35L41 quad amplifiers, wired 3.5mm headphone playback DAI, ALSA UCM + PipeWire |
+| **Microphone** | Built-in Mic Array | ✅ Working | Clear audio recording via PipeWire |
+| **Camera (Rear)** | 13MP OmniVision OV13B10 | ✅ Working | `camera-studio` / libcamera with VCM autofocus |
+| **Camera (Front)** | 8MP OmniVision OV8856 | ✅ Working | `camera-studio` with upright orientation correction |
+| **Flash / Torch** | Dual Rear LED Flash | ✅ Working | Hardware flash control via `nabu-torch` (GUI/CLI with intensity control) or sysfs |
+| **Wireless** | Wi-Fi 5 (802.11ac 2.4/5GHz) | ✅ Working | Qualcomm WCN3990 via NetworkManager with persistent MAC (`nabu-pmac`) |
+| **Bluetooth** | Bluetooth 5.0 | ✅ Working | Qualcomm WCN3990 via BlueZ |
+| **Sensors** | Accelerometer & Gyroscope | ✅ Working | SLPI/SSC via FastRPC, `hexagonrpcd` & `iio-sensor-proxy` |
+| **Screen Rotation** | Automatic Screen Rotation | ✅ Working | Handled via `nabu-tablet-mode` daemon |
+| **Auto-Brightness** | Ambient Light Sensor (ALS) | ✅ Working | Native `gsd-power` on GNOME, `nabu-autobrightness` on Plasma |
+| **Stylus (Input)** | Xiaomi Smart Pen (Drawing & Input) | ✅ Working | 4096 pressure levels, tilt, hover, and dual barrel buttons via `NVTCapacitivePen` |
+| **Stylus (Charging)** | Wireless Magnetic Pen Charging | ✅ Working | Supported via IDT P9418 driver (integrated in 7.3 kernel) |
+| **Accessories** | Magnetic Pogo-Pin Keyboard Cover | ✅ Working | Instant physical typing via serial pogo connector |
+| **Battery & Power** | Battery Telemetry & Fast Charging | ✅ Working | PM8150B BMS charger driver, LN8000 33W direct fast charge, battery gauge, 15W-27W USB-PD and QC charging |
+| **Sleep** | Suspend & Resume | ✅ Working | S2idle sleep with post-resume sensor recovery |
+| **USB** | USB Type-C 2.0 & OTG | ✅ Working | Flash drives, mice, keyboards, hubs supported |
+| **External Display** | USB DisplayLink Output | ✅ Working | Supported with DisplayLink docks (`displaylink` + `evdi`) |
+| **External Display** | USB-C DisplayPort Alt-Mode | ❌ Not Supported | Hardware limitation (SoC USB lines lack DP routing) |
+| **DRM** | Widevine L1 (HD Streaming) | ❌ Not Supported | Widevine L3 software works; L1 requires Android TEE |
 
 ---
 
 ## Installation
 
-### What you need
+### Method 1: Single Boot (Fastboot / Standalone Linux)
 
-- Xiaomi Pad 5 with an unlocked bootloader
-- [TWRP](https://github.com/Kumar-Jy/twrp_device_xiaomi_nabu/releases/tag/mod-hybrid) custom recovery
-- Installer zip from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases/tag/arch-atomic)
+This method flashes Arch Linux ARM as the sole operating system on your tablet directly from your PC via **Fastboot** (no TWRP or repartitioning needed).
+
+1. **Download the installer**:
+   - Get the installer ZIP from [Releases](https://github.com/Kumar-Jy/Nabu-arch-images/releases/tag/arch-atomic) (`Nabu-alarm-atomic-plasma-installer.zip` or `Nabu-alarm-atomic-gnome-installer.zip`), or download via the CLI scripts (`get-plasma.sh` / `get-gnome.sh`).
+2. **Unzip the installer** on your computer.
+3. **Reboot the tablet into Fastboot Mode**:
+   - Power off your tablet, then hold **Power + Volume Down** until the FASTBOOT screen appears.
+   - Connect the tablet to your computer via USB.
+4. **Flash using the automated script**:
+   - **Linux / macOS**:
+     ```bash
+     chmod +x flash-linux.sh
+     ./flash-linux.sh
+     ```
+   - **Windows**: Double-click `flash-linux.bat`
+
+#### 🛠️ Manual Fastboot Commands
+If you prefer running the commands manually:
+```bash
+# 1. Flash Aloha UEFI to the boot partition (both slots)
+fastboot flash boot_ab images/alohauefi.img
+
+# 2. Flash ESP to the cust partition
+fastboot flash cust images/esp.img
+
+# 3. Flash rootfs to the userdata partition
+fastboot flash userdata images/rootfs.img
+
+# 4. Reboot into Arch Linux
+fastboot reboot
+```
+> [!NOTE]
+> `alohauefi.img` is included directly in the installer `images/` directory.
+
+---
+
+### Method 2: Dual / Triple Boot (via TWRP Recovery)
 
 ### Partition layout
 

@@ -136,9 +136,12 @@ jobs:
           cat > release-notes.md << BODY
           Built images (bootc/ostree atomic updates)
 
-          - Kernel: `linux-nabu` 7.3.1
+          - Kernel: \`linux-nabu\` 7.3.3-3 (mainline Linux 7.3.3 with Iris VPU5 VA-API hardware video decode, LN8000 33W fast charge, SLPI sensors)
+          - Video: \`iris-vaapi\` hardware video decode driver included for browser & media acceleration
+          - Sensors: \`hexagonrpcd\` + \`libssc\` + \`iio-sensor-proxy\` included for auto-rotation and ambient light sensing
+          - Bootloader: Aloha UEFI included with automatic Single-Boot and Dual-Boot fastboot flashing
           - Plasma: full-size Plasma Keyboard add-on enabled by default (English + Hindi layouts)
-          - GNOME: `evolution-data-server` included (fixes `gnome-shell-calendar-server` crashes)
+          - GNOME: \`evolution-data-server\`, \`nabu-autobrightness\`, and \`stylus-popup\` included
 
           BODY
           if [ -n "$GNOME_RUN_ID" ]; then

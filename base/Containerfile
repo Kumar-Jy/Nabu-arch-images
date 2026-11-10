@@ -42,7 +42,7 @@ RUN set -eux; \
     pacman -Scc --noconfirm
 
 # --- Layer 2: Nabu repos + kernel + firmware ---
-# linux-nabu tracks the [nabu] repo (currently the 7.3 series, 7.3.1).
+# linux-nabu tracks the [nabu] repo (currently the 7.3 series, 7.3.3).
 RUN set -eux; \
     pacman-key --init; \
     pacman-key --populate archlinuxarm; \
@@ -54,8 +54,10 @@ RUN set -eux; \
         linux-nabu \
         linux-firmware-xiaomi-nabu \
         alsa-ucm-conf-xiaomi-nabu \
-        tqftpserv rmtfs; \
-    systemctl enable tqftpserv rmtfs || true; \
+        qrtr tqftpserv rmtfs \
+        hexagonrpcd libssc iio-sensor-proxy \
+        iris-vaapi; \
+    systemctl enable tqftpserv rmtfs hexagonrpcd iio-sensor-proxy || true; \
     kernver=$(ls /usr/lib/modules/ | sort -V | tail -1); \
     if [ -n "$kernver" ]; then \
         for src in "/boot/vmlinux-${kernver}" "/boot/vmlinuz-${kernver}" "/boot/vmlinuz-linux-nabu" "/boot/Image"; do \
@@ -150,6 +152,7 @@ RUN set -eux; \
 RUN set -eux; \
     sed -i 's|^MODULES=.*|MODULES=(btrfs vfat ext4 xfs erofs)|g' /etc/mkinitcpio.conf; \
     sed -i 's|^HOOKS=.*|HOOKS=(systemd autodetect modconf kms keyboard keymap consolefont block filesystems fsck ostree)|g' /etc/mkinitcpio.conf; \
+    sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|g' /etc/mkinitcpio.conf; \
     mkdir -p /boot/efi
 
 # --- Layer 8: Apply overlay (configs, scripts, services) ---

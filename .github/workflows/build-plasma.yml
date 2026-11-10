@@ -135,6 +135,9 @@ jobs:
           cp base/overlay/opt/nabu/fastboot-script/flash-linux.bat .
           cp base/overlay/opt/nabu/fastboot-script/flash-linux.sh .
           chmod +x flash-linux.sh
+          if [ -f base/overlay/opt/nabu/alohauefi.img ]; then
+            cp base/overlay/opt/nabu/alohauefi.img ./images/alohauefi.img
+          fi
 
       - name: Upload installer
         uses: actions/upload-artifact@v7

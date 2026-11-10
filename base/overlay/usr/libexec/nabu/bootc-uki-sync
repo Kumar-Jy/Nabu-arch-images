@@ -42,6 +42,10 @@ if [ -f /usr/lib/kernel/uki.conf ]; then
     sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-${KERNVER}|" /usr/lib/kernel/uki.conf
 fi
 
+if [ -f /etc/mkinitcpio.conf ]; then
+    sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' /etc/mkinitcpio.conf
+fi
+
 # Ensure ESP is mounted
 if ! findmnt -M "$ESP" > /dev/null 2>&1; then
     echo "ESP not mounted at $ESP, attempting mount..."

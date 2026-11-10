@@ -121,6 +121,8 @@ PRESET
   sed -i "s|^DeviceTree=.*|DeviceTree=/boot/dtb-\$kernver|" usr/lib/kernel/uki.conf
 fi
 
+sed -i 's|^FILES=.*|FILES=(/usr/lib/udev/rules.d/99-nabu-partlabel.rules /etc/udev/rules.d/99-nabu-partlabel.rules)|' etc/mkinitcpio.conf 2>/dev/null || true
+
 chown -R ${DM_USER}:${DM_USER} var/lib/${DM_USER}/.config/ 2>/dev/null || true
 
 # Run overlay-post-apply scripts (excluded from rsync but present from container)

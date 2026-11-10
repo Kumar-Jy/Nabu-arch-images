@@ -1,0 +1,10 @@
+# Xiaomi Pad 5 (nabu) root and ESP compatibility symlinks
+# Regardless of which partition rootfs.img or esp.img are flashed to (linux vs userdata, esp vs cust),
+# match by unique filesystem volume label so they reliably map to /dev/disk/by-partlabel/linux and /dev/disk/by-partlabel/esp.
+
+ENV{ID_FS_LABEL}=="linux|arch-root", SYMLINK+="disk/by-partlabel/linux"
+ENV{ID_FS_LABEL}=="EFI|ESPNABU", SYMLINK+="disk/by-partlabel/esp"
+
+# Fallback: if flashed without label, map userdata/cust only if a dedicated linux/esp partition does NOT exist
+ENV{ID_PART_ENTRY_NAME}=="userdata", ENV{ID_FS_TYPE}=="btrfs|ext4", TEST!="/dev/disk/by-partlabel/linux", SYMLINK+="disk/by-partlabel/linux"
+ENV{ID_PART_ENTRY_NAME}=="cust", ENV{ID_FS_TYPE}=="vfat", TEST!="/dev/disk/by-partlabel/esp", SYMLINK+="disk/by-partlabel/esp"

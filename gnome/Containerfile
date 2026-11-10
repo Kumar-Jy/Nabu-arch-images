@@ -20,7 +20,7 @@ RUN set -eux; \
         firefox flatpak gnome-software \
         geoclue \
         evolution-data-server \
-        nabu-tablet-mode camera-studio system-monitor nabu-torch; \
+        nabu-tablet-mode camera-studio system-monitor nabu-torch nabu-autobrightness stylus-popup; \
     flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; \
     dconf update; \
     pacman -Scc --noconfirm
@@ -28,6 +28,7 @@ RUN set -eux; \
 # --- Enable GDM + auto-login ---
 RUN systemctl enable gdm || true; \
     systemctl enable nabu-tablet-mode.service || true; \
+    systemctl --global enable nabu-autobrightness.service stylus-popup.service || true; \
     mkdir -p /etc/gdm; \
     printf '[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=user\n' > /etc/gdm/custom.conf
 
