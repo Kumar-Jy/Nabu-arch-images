@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -e
+
+# Make helper scripts executable
+chmod 755 /usr/bin/nabu-hypr-rotate /usr/bin/nabu-osk-toggle 2>/dev/null || true
+
+# Seed skeleton configuration to default user home
+if [ -d /etc/skel/.config ]; then
+    mkdir -p /home/user/.config
+    cp -r /etc/skel/.config/* /home/user/.config/ 2>/dev/null || true
+    chown -R user:user /home/user/.config
+fi
+
+# Build and enable nabu-tablet-mode if not already compiled
+if [ -f /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c ] && [ ! -f /usr/local/libexec/nabu-tablet-mode ]; then
+    mkdir -p /usr/local/libexec
+    if command -v gcc >/dev/null 2>&1; then
+        gcc -O2 -Wall -Wextra /usr/local/share/nabu-tablet-mode/nabu-tablet-mode.c -o /usr/local/libexec/nabu-tablet-mode
+        chmod 755 /usr/local/libexec/nabu-tablet-mode
+    fi
+fi
+if [ -f /etc/systemd/system/nabu-tablet-mode.service ] || [ -f /usr/lib/systemd/system/nabu-tablet-mode.service ]; then
+    systemctl enable nabu-tablet-mode.service 2>/dev/null || true
+fi
+
+# Enable user session daemons globally
+if [ -f /usr/lib/systemd/user/nabu-autobrightness.service ]; then
+    systemctl --global enable nabu-autobrightness.service 2>/dev/null || true
+fi
+
+if [ -f /usr/lib/systemd/user/stylus-popup.service ]; then
+    systemctl --global enable stylus-popup.service 2>/dev/null || true
+fi

@@ -1,0 +1,82 @@
+configuration {
+    modi: "drun,run,window";
+    font: "JetBrains Mono Nerd Font 14";
+    show-icons: true;
+    icon-theme: "Papirus";
+    terminal: "kitty";
+    drun-display-format: "{name}";
+}
+
+@theme "/dev/null"
+
+* {
+    bg: rgba(30, 30, 46, 0.95);
+    fg: #cdd6f4;
+    accent: #89b4fa;
+    border-col: rgba(137, 180, 250, 0.4);
+    background-color: transparent;
+    text-color: @fg;
+}
+
+window {
+    width: 65%;
+    height: 60%;
+    background-color: @bg;
+    border: 2px;
+    border-color: @border-col;
+    border-radius: 18px;
+    padding: 24px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 20px;
+}
+
+inputbar {
+    children: [ prompt, entry ];
+    background-color: rgba(17, 17, 27, 0.6);
+    border-radius: 12px;
+    padding: 12px 18px;
+}
+
+prompt {
+    text-color: @accent;
+    padding: 0 10px 0 0;
+}
+
+entry {
+    placeholder: "Search applications...";
+    placeholder-color: #6c7086;
+}
+
+listview {
+    columns: 4;
+    lines: 4;
+    cycle: false;
+    dynamic: true;
+    layout: vertical;
+    spacing: 12px;
+}
+
+element {
+    orientation: vertical;
+    padding: 18px;
+    border-radius: 14px;
+}
+
+element selected {
+    background-color: rgba(137, 180, 250, 0.25);
+    border: 1px;
+    border-color: @accent;
+}
+
+element-icon {
+    size: 56px;
+    horizontal-align: 0.5;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    padding: 8px 0 0 0;
+}

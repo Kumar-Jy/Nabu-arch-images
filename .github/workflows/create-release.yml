@@ -24,6 +24,7 @@ jobs:
       run_id: ${{ steps.resolve.outputs.run_id }}
       plasma_url: ${{ steps.upload.outputs.plasma_url }}
       gnome_url: ${{ steps.upload.outputs.gnome_url }}
+      hyprland_url: ${{ steps.upload.outputs.hyprland_url }}
     steps:
       - name: Resolve run ID
         id: resolve
@@ -66,6 +67,15 @@ jobs:
           GNOME_ID=$(echo "$GNOME_RES" | jq -r '.id')
           echo "gnome_url=https://pixeldrain.com/u/$GNOME_ID" >> $GITHUB_OUTPUT
           rm -f arch-nabu-installer-gnome.zip
+
+          echo "Uploading Hyprland artifact..."
+          curl -sLO "https://nightly.link/$REPO/actions/runs/$RUN_ID/arch-nabu-installer-hyprland.zip" || true
+          if [ -f arch-nabu-installer-hyprland.zip ]; then
+            HYPR_RES=$(curl -s -T arch-nabu-installer-hyprland.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            HYPR_ID=$(echo "$HYPR_RES" | jq -r '.id')
+            echo "hyprland_url=https://pixeldrain.com/u/$HYPR_ID" >> $GITHUB_OUTPUT
+            rm -f arch-nabu-installer-hyprland.zip
+          fi
 
   upload-atomic:
     runs-on: ubuntu-24.04-arm
@@ -139,6 +149,7 @@ jobs:
 
           PLASMA_PD_URL="${{ needs.upload-non-atomic.outputs.plasma_url }}"
           GNOME_PD_URL="${{ needs.upload-non-atomic.outputs.gnome_url }}"
+          HYPRLAND_PD_URL="${{ needs.upload-non-atomic.outputs.hyprland_url }}"
 
           ATOMIC_GNOME_RUN="${{ needs.upload-atomic.outputs.gnome_run_id }}"
           ATOMIC_PLASMA_RUN="${{ needs.upload-atomic.outputs.plasma_run_id }}"
@@ -168,6 +179,7 @@ jobs:
           | :--- | :--- | :--- |
           | **KDE Plasma** | [📥 Download Plasma ZIP](${NL_BASE}/arch-nabu-installer-plasma.zip) | $([ -n "$PLASMA_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($PLASMA_PD_URL)" || echo "Pending") |
           | **GNOME** | [📥 Download GNOME ZIP](${NL_BASE}/arch-nabu-installer-gnome.zip) | $([ -n "$GNOME_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($GNOME_PD_URL)" || echo "Pending") |
+          | **Hyprland (Touch)** | [📥 Download Hyprland ZIP](${NL_BASE}/arch-nabu-installer-hyprland.zip) | $([ -n "$HYPRLAND_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($HYPRLAND_PD_URL)" || echo "Pending") |
 
           > **Attached Release Assets:**
           > - \`nabu-arch-rEFInd.zip\` — Multi-boot UEFI bootloader
@@ -253,6 +265,18 @@ jobs:
           echo 'curl -fL "$URL" -o nabu-plasma-installer.zip' >> scripts-tmp/get-plasma.sh
           echo 'echo "Saved: nabu-plasma-installer.zip"' >> scripts-tmp/get-plasma.sh
           chmod +x scripts-tmp/get-plasma.sh
+
+          echo '#!/usr/bin/env bash' > scripts-tmp/get-hyprland.sh
+          echo 'set -euo pipefail' >> scripts-tmp/get-hyprland.sh
+          echo "REPO=\"$REPO\"" >> scripts-tmp/get-hyprland.sh
+          echo "RUN_ID=\"$RUN_ID\"" >> scripts-tmp/get-hyprland.sh
+          echo 'ARTIFACT="arch-nabu-installer-hyprland"' >> scripts-tmp/get-hyprland.sh
+          echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-hyprland.sh
+          echo 'echo "Downloading Hyprland installer from:"' >> scripts-tmp/get-hyprland.sh
+          echo 'echo "  $URL"' >> scripts-tmp/get-hyprland.sh
+          echo 'curl -fL "$URL" -o nabu-hyprland-installer.zip' >> scripts-tmp/get-hyprland.sh
+          echo 'echo "Saved: nabu-hyprland-installer.zip"' >> scripts-tmp/get-hyprland.sh
+          chmod +x scripts-tmp/get-hyprland.sh
 
       - name: Prepare standalone release assets
         run: |

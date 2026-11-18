@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# nabu-osk-toggle: Seamless toggle between wvkbd and oskb on Hyprland
+
+# If wvkbd is running, toggle it off
+if pidof wvkbd-mobintl >/dev/null 2>&1 || pidof wvkbd >/dev/null 2>&1; then
+    pkill -SIGTERM wvkbd-mobintl 2>/dev/null || pkill -SIGTERM wvkbd 2>/dev/null
+    exit 0
+fi
+
+# If wvkbd is installed, prioritize wvkbd
+if command -v wvkbd-mobintl >/dev/null 2>&1; then
+    wvkbd-mobintl -L 300 &
+    exit 0
+elif command -v wvkbd >/dev/null 2>&1; then
+    wvkbd -L 300 &
+    exit 0
+fi
+
+# Fallback to oskb (toggle visibility via native IPC)
+if command -v oskb >/dev/null 2>&1; then
+    oskb --toggle
+fi
