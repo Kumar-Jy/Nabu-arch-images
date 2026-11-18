@@ -136,7 +136,7 @@ jobs:
           cat > release-notes.md << BODY
           Built images (bootc/ostree atomic updates)
 
-          - Kernel: \`linux-nabu\` 7.3.3-3 (mainline Linux 7.3.3 with Iris VPU5 VA-API hardware video decode, LN8000 33W fast charge, SLPI sensors)
+          - Kernel: \`linux-nabu\` 7.3.5-0 (mainline Linux 7.3.5 with Iris VPU5 VA-API hardware video decode, LN8000 33W fast charge, SLPI sensors)
           - Video: \`iris-vaapi\` hardware video decode driver included for browser & media acceleration
           - Sensors: \`hexagonrpcd\` + \`libssc\` + \`iio-sensor-proxy\` included for auto-rotation and ambient light sensing
           - Bootloader: Aloha UEFI included with automatic Single-Boot and Dual-Boot fastboot flashing

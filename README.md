@@ -51,7 +51,7 @@ Arch Atomic is an **immutable, container-native Arch Linux distribution** (simil
    - **Custom Container Images**: You can fork the image, add packages in a `Containerfile`, and switch to your own build (`sudo bootc switch <image>`).
    - **Temporary Pacman Testing**: `sudo bootc usr-overlay` allows temporary `pacman -S` testing that safely clears on reboot.
 3. **Full Xiaomi Pad 5 Hardware Integration**:
-   - Ships Linux **7.3.3-3** with tuned Novatek 120Hz/60Hz refresh rates, LN8000 33W fast charging, Smart Pen stylus, and quad-speaker ALSA/PipeWire audio.
+   - Ships Linux **7.3.5-0** with tuned Novatek 120Hz/60Hz refresh rates, LN8000 33W fast charging, Smart Pen stylus, and quad-speaker ALSA/PipeWire audio.
    - Bundles **`iris-vaapi`** for hardware-accelerated video decoding.
    - Built-in SLPI sensor proxying for automatic screen rotation and ambient light sensing.
    - Aloha UEFI payload bundled for automatic Single-Boot and Dual-Boot fastboot flashing.

@@ -4,6 +4,18 @@ All notable changes to **Arch Linux ARM (Atomic / bootc) for Xiaomi Pad 5 (nabu)
 
 ---
 
+## [Build 2026-11-18]
+
+### ⚙️ Kernel & Boot
+- **Kernel 7.3.5-0:** Tracks `linux-nabu` / `linux-nabu-headers` 7.3.5-0 from the `[nabu]` repository.
+  - **Suspend & Idle:** Save and restore TPIDR2_EL0 across CPU suspend to stabilize PSCI deep sleep and idle.
+  - **Bluetooth & WiFi:** Sync Qualcomm WCN3990 NVM baud rate offset and restore legacy advertising on resume.
+  - **Audio DSP:** Guard Qualcomm DSP (q6apm/q6prm) callbacks against early uninitialized access during probe.
+  - **Storage:** Hardened F2FS atomic writeback and checkpoint SIT/NAT bounds.
+  - **Packaging:** Aligned PKGBUILD sources and release assets with upstream `v7.3.5-0`.
+
+---
+
 ## [Build 2026-11-10]
 
 ### ⚙️ Kernel & Boot
