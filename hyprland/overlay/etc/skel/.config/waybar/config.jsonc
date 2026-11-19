@@ -27,7 +27,7 @@
     ],
     "custom/launcher": {
         "format": "",
-        "on-click": "pkill rofi || pkill wofi || rofi -show drun -theme ~/.config/rofi/config.rasi 2>/dev/null || wofi --show drun",
+        "on-click": "pkill rofi || pkill wofi || rofi -show drun || wofi --show drun",
         "tooltip": false
     },
     "hyprland/workspaces": {

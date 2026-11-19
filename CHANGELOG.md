@@ -4,6 +4,21 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 
 ---
 
+## [Build 2026-11-19]
+
+### ⚙️ Kernel & Boot
+- **Kernel 7.3.5-2:** Upgraded installer default kernel to 7.3.5-2 with hardware video decoding & charging disconnect fixes.
+  - **Media & Iris:** Skip restricted 0-600MB IOVA reservation on legacy VPU5 (SM8150) to restore hardware video decoding (H.264 & HEVC).
+  - **Power & Charging:** BMS evaluate direct charge before status update and gate 5s CC sticky window on active direct charge delivery (>500mA) so charger disconnect immediately reflects in sysfs and desktop status bars.
+  - **Stylus Charger:** Implement `.poll` file operation for wait queue in IDTP9418 wireless charger.
+  - **Packaging:** Synchronized `linux-nabu` and `linux-nabu-headers` 7.3.5-2 packages from the `[nabu]` repository.
+
+### 🖥️ Desktop & Apps
+- **Rofi (Wayland):** Integrated native Wayland support into `rofi` with layer-shell protocol support.
+- **Waybar Launcher:** Refined launcher on-click action to toggle Rofi cleanly on Wayland.
+
+---
+
 ## [Build 2026-11-18]
 
 ### ⚙️ Kernel & Boot
