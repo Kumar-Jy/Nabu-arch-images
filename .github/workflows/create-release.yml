@@ -25,6 +25,7 @@ jobs:
       plasma_url: ${{ steps.upload.outputs.plasma_url }}
       gnome_url: ${{ steps.upload.outputs.gnome_url }}
       hyprland_url: ${{ steps.upload.outputs.hyprland_url }}
+      base_url: ${{ steps.upload.outputs.base_url }}
     steps:
       - name: Resolve run ID
         id: resolve
@@ -75,6 +76,15 @@ jobs:
             HYPR_ID=$(echo "$HYPR_RES" | jq -r '.id')
             echo "hyprland_url=https://pixeldrain.com/u/$HYPR_ID" >> $GITHUB_OUTPUT
             rm -f arch-nabu-installer-hyprland.zip
+          fi
+
+          echo "Uploading Base image artifact..."
+          curl -sLO "https://nightly.link/$REPO/actions/runs/$RUN_ID/arch-nabu-rootfs-base.zip" || true
+          if [ -f arch-nabu-rootfs-base.zip ]; then
+            BASE_RES=$(curl -s -T arch-nabu-rootfs-base.zip -u ":${{ secrets.PIXELDRAIN_API_KEY }}" https://pixeldrain.com/api/file/)
+            BASE_ID=$(echo "$BASE_RES" | jq -r '.id')
+            echo "base_url=https://pixeldrain.com/u/$BASE_ID" >> $GITHUB_OUTPUT
+            rm -f arch-nabu-rootfs-base.zip
           fi
 
   upload-atomic:
@@ -150,6 +160,7 @@ jobs:
           PLASMA_PD_URL="${{ needs.upload-non-atomic.outputs.plasma_url }}"
           GNOME_PD_URL="${{ needs.upload-non-atomic.outputs.gnome_url }}"
           HYPRLAND_PD_URL="${{ needs.upload-non-atomic.outputs.hyprland_url }}"
+          BASE_PD_URL="${{ needs.upload-non-atomic.outputs.base_url }}"
 
           ATOMIC_GNOME_RUN="${{ needs.upload-atomic.outputs.gnome_run_id }}"
           ATOMIC_PLASMA_RUN="${{ needs.upload-atomic.outputs.plasma_run_id }}"
@@ -179,12 +190,15 @@ jobs:
           | :--- | :--- | :--- |
           | **KDE Plasma** | [📥 Download Plasma ZIP](${NL_BASE}/arch-nabu-installer-plasma.zip) | $([ -n "$PLASMA_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($PLASMA_PD_URL)" || echo "Pending") |
           | **GNOME** | [📥 Download GNOME ZIP](${NL_BASE}/arch-nabu-installer-gnome.zip) | $([ -n "$GNOME_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($GNOME_PD_URL)" || echo "Pending") |
-          | **Hyprland (Touch)** | [📥 Download Hyprland ZIP](${NL_BASE}/arch-nabu-installer-hyprland.zip) | $([ -n "$HYPRLAND_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($HYPRLAND_PD_URL)" || echo "Pending") |
+          | **Hyprland (Touch)** | [📥 Download Hyprland ZIP](${NL_BASE}/arch-nabu-installer-hyprland.zip)<br>*(Also in Release Assets)* | $([ -n "$HYPRLAND_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($HYPRLAND_PD_URL)" || echo "Pending") |
+          | **Base Rootfs** | [📥 Download Base ZIP](${NL_BASE}/arch-nabu-rootfs-base.zip)<br>*(Also in Release Assets)* | $([ -n "$BASE_PD_URL" ] && echo "[🌐 Pixeldrain Mirror]($BASE_PD_URL)" || echo "Pending") |
 
           > **Attached Release Assets:**
+          > - \`arch-nabu-installer-hyprland.zip\` — Direct TWRP-flashable installer zip for Hyprland Touch Edition
+          > - \`arch-nabu-rootfs-base.img.gz\` — Base Arch Linux ARM rootfs image (compressed ext4)
           > - \`nabu-arch-rEFInd.zip\` — Multi-boot UEFI bootloader
           > - \`alohauefi.img\` — Aloha UEFI boot image for single-boot / fastboot flashing
-          > - \`get-plasma.sh\` / \`get-gnome.sh\` — Direct CLI download scripts
+          > - \`get-plasma.sh\` / \`get-gnome.sh\` / \`get-hyprland.sh\` / \`get-base.sh\` — Direct CLI download scripts
 
           BODY
 
@@ -278,16 +292,64 @@ jobs:
           echo 'echo "Saved: nabu-hyprland-installer.zip"' >> scripts-tmp/get-hyprland.sh
           chmod +x scripts-tmp/get-hyprland.sh
 
+          echo '#!/usr/bin/env bash' > scripts-tmp/get-base.sh
+          echo 'set -euo pipefail' >> scripts-tmp/get-base.sh
+          echo "REPO=\"$REPO\"" >> scripts-tmp/get-base.sh
+          echo "RUN_ID=\"$RUN_ID\"" >> scripts-tmp/get-base.sh
+          echo 'ARTIFACT="arch-nabu-rootfs-base"' >> scripts-tmp/get-base.sh
+          echo 'URL="https://nightly.link/${REPO}/actions/runs/${RUN_ID}/${ARTIFACT}.zip"' >> scripts-tmp/get-base.sh
+          echo 'echo "Downloading Base rootfs image from:"' >> scripts-tmp/get-base.sh
+          echo 'echo "  $URL"' >> scripts-tmp/get-base.sh
+          echo 'curl -fL "$URL" -o nabu-base-rootfs.zip' >> scripts-tmp/get-base.sh
+          echo 'echo "Saved: nabu-base-rootfs.zip"' >> scripts-tmp/get-base.sh
+          chmod +x scripts-tmp/get-base.sh
+
+      - name: Install release tools
+        run: sudo apt-get update && sudo apt-get install -y zip unzip pigz jq curl
+
       - name: Prepare standalone release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           RUN_ID="${{ needs.upload-non-atomic.outputs.run_id }}"
           REPO="${{ github.repository }}"
           mkdir -p release-assets
-          curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/nabu-arch-rEFInd.zip" -o release-assets/nabu-arch-rEFInd.zip || true
+
+          echo "Fetching rEFInd bootloader..."
+          curl -fL --retry 3 "https://nightly.link/$REPO/actions/runs/$RUN_ID/nabu-arch-rEFInd.zip" -o release-assets/nabu-arch-rEFInd.zip || true
+
           if [ -f base/overlay/opt/nabu/alohauefi.img ]; then
             cp base/overlay/opt/nabu/alohauefi.img release-assets/alohauefi.img
           else
-            curl -fL "https://nightly.link/$REPO/actions/runs/$RUN_ID/alohauefi.img" -o release-assets/alohauefi.img || true
+            curl -fL --retry 3 "https://nightly.link/$REPO/actions/runs/$RUN_ID/alohauefi.img" -o release-assets/alohauefi.img || true
+          fi
+
+          echo "Fetching Hyprland installer zip..."
+          if ! curl -fL --retry 3 "https://nightly.link/$REPO/actions/runs/$RUN_ID/arch-nabu-installer-hyprland.zip" -o release-assets/arch-nabu-installer-hyprland.zip || [ ! -s release-assets/arch-nabu-installer-hyprland.zip ]; then
+            echo "Falling back to gh run download for Hyprland installer..."
+            mkdir -p hyprland-tmp
+            if gh run download "$RUN_ID" -n arch-nabu-installer-hyprland -D hyprland-tmp; then
+              (cd hyprland-tmp && zip -r -9 ../release-assets/arch-nabu-installer-hyprland.zip .)
+              rm -rf hyprland-tmp
+            fi
+          fi
+
+          echo "Fetching Base rootfs image..."
+          mkdir -p base-tmp
+          if gh run download "$RUN_ID" -n arch-nabu-rootfs-base -D base-tmp; then
+            if [ -f base-tmp/rootfs.img.gz ]; then
+              cp base-tmp/rootfs.img.gz release-assets/arch-nabu-rootfs-base.img.gz
+            fi
+            rm -rf base-tmp
+          fi
+          if [ ! -f release-assets/arch-nabu-rootfs-base.img.gz ]; then
+            echo "Falling back to nightly.link for base rootfs image..."
+            curl -fL --retry 3 "https://nightly.link/$REPO/actions/runs/$RUN_ID/arch-nabu-rootfs-base.zip" -o base-tmp.zip || true
+            if [ -s base-tmp.zip ]; then
+              unzip -q -o base-tmp.zip -d base-tmp
+              [ -f base-tmp/rootfs.img.gz ] && cp base-tmp/rootfs.img.gz release-assets/arch-nabu-rootfs-base.img.gz
+              rm -rf base-tmp base-tmp.zip
+            fi
           fi
 
       - name: Update release
@@ -299,7 +361,14 @@ jobs:
 
           files=""
           for f in scripts-tmp/get-*.sh release-assets/*; do
-            [ -f "$f" ] && files="$files $f"
+            if [ -f "$f" ]; then
+              size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
+              if [ "$size" -ge 2147483648 ]; then
+                echo "Warning: $f is >= 2GB ($size bytes), skipping release asset upload."
+              else
+                files="$files $f"
+              fi
+            fi
           done
 
           TITLE="Arch Linux ARM for Xiaomi Pad 5 ($BUILD_DATE)"
