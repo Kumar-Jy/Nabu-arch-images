@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+TARGET_USER="${SUDO_USER:-$(id -un)}"
+TARGET_UID="$(id -u "$TARGET_USER")"
+RUNTIME_DIR="/run/user/$TARGET_UID"
+LOCK_FILE="$RUNTIME_DIR/nabu-rotate.lock"
+
+if [ -f "$LOCK_FILE" ]; then
+    rm -f "$LOCK_FILE"
+    MSG="Auto-rotation enabled"
+else
+    touch "$LOCK_FILE"
+    MSG="Screen orientation locked"
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+    export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+    export XDG_RUNTIME_DIR="$RUNTIME_DIR"
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNTIME_DIR/bus"
+    notify-send "Rotation" "$MSG" 2>/dev/null || true
+fi
+
+# Signal Waybar to refresh custom/rotate immediately
+pkill -RTMIN+8 waybar 2>/dev/null || true

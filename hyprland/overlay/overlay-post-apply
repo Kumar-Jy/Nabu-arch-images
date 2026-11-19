@@ -2,13 +2,21 @@
 set -e
 
 # Make helper scripts executable
-chmod 755 /usr/bin/nabu-hypr-rotate /usr/bin/nabu-osk-toggle 2>/dev/null || true
+chmod 755 /usr/bin/nabu-* 2>/dev/null || true
 
 # Seed skeleton configuration to default user home
 if [ -d /etc/skel/.config ]; then
     mkdir -p /home/user/.config
-    cp -r /etc/skel/.config/* /home/user/.config/ 2>/dev/null || true
+    cp -a /etc/skel/.config/. /home/user/.config/ 2>/dev/null || true
     chown -R user:user /home/user/.config
+fi
+
+if [ -d /etc/skel/.local ]; then
+    mkdir -p /home/user/.local
+    cp -a /etc/skel/.local/. /home/user/.local/ 2>/dev/null || true
+    chmod -R 755 /etc/skel/.local/share/nautilus/scripts 2>/dev/null || true
+    chmod -R 755 /home/user/.local/share/nautilus/scripts 2>/dev/null || true
+    chown -R user:user /home/user/.local
 fi
 
 # Build and enable nabu-tablet-mode if not already compiled
@@ -30,4 +38,8 @@ fi
 
 if [ -f /usr/lib/systemd/user/stylus-popup.service ]; then
     systemctl --global enable stylus-popup.service 2>/dev/null || true
+fi
+
+if [ -f /usr/lib/systemd/user/nabu-hypr-rotate.service ]; then
+    systemctl --global enable nabu-hypr-rotate.service 2>/dev/null || true
 fi

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# nabu-bluetooth-menu: Touch Bluetooth Manager for Xiaomi Pad 5
+# Automatically powers on adapter and initiates discovery scan
+# ==============================================================================
+
+set -eo pipefail
+
+if ! systemctl is-active --quiet bluetooth; then
+    sudo systemctl start bluetooth 2>/dev/null || true
+fi
+
+BT_STATE=$(bluetoothctl show | grep -i "Powered:" | awk '{print $2}' || echo "no")
+if [ "$BT_STATE" != "yes" ]; then
+    bluetoothctl power on 2>/dev/null || true
+    notify-send "Bluetooth" "Bluetooth powered ON. Scanning for nearby devices..."
+else
+    notify-send "Bluetooth" "Scanning for nearby devices..."
+fi
+
+# Automatically start discovery scan in background for 60 seconds
+bluetoothctl --timeout 60 scan on >/dev/null 2>&1 &
+
+# Open Bluetooth Device Manager (floating centered)
+exec blueman-manager

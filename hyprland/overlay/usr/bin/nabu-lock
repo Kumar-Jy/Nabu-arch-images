@@ -1,0 +1,15 @@
+#!/bin/bash
+# ==============================================================================
+# nabu-lock: Tablet Touch-Friendly Screen Locker for Xiaomi Pad 5 (nabu)
+# Uses gtklock with virtkb on-screen keyboard for seamless touch unlocking.
+# ==============================================================================
+
+if pidof gtklock >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Dismiss floating desktop OSK so it doesn't conflict
+pkill wvkbd-mobintl >/dev/null 2>&1 || true
+
+# Launch gtklock
+exec gtklock

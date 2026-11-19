@@ -1,0 +1,75 @@
+/* Modern Tablet Lockscreen styling for gtklock */
+
+window {
+    background-color: rgba(15, 17, 23, 0.65);
+}
+
+#clock-label {
+    font-size: 72px;
+    font-weight: 800;
+    color: #f8f9fa;
+    margin-bottom: 4px;
+}
+
+#date-label {
+    font-size: 20px;
+    font-weight: 500;
+    color: rgba(248, 249, 250, 0.75);
+    margin-bottom: 24px;
+}
+
+#input-field {
+    border-radius: 20px;
+    padding: 10px 18px;
+    font-size: 18px;
+    background-color: rgba(30, 34, 46, 0.85);
+    border: 2px solid rgba(137, 180, 250, 0.5);
+    color: #cdd6f4;
+    min-width: 280px;
+}
+
+#input-field:focus {
+    border-color: #89b4fa;
+    box-shadow: 0 0 10px rgba(137, 180, 250, 0.5);
+}
+
+#unlock-button {
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    background-color: #89b4fa;
+    color: #11111b;
+    border: none;
+    margin-top: 12px;
+}
+
+#unlock-button:hover, #unlock-button:active {
+    background-color: #b4befe;
+}
+
+/* Virtual Keyboard styling */
+.keyboard {
+    background-color: rgba(20, 22, 30, 0.85);
+    border-radius: 16px;
+    padding: 12px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.keyboard button {
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    min-width: 44px;
+    min-height: 48px;
+    background-color: rgba(45, 49, 66, 0.9);
+    color: #cdd6f4;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 3px;
+}
+
+.keyboard button:active, .keyboard button:checked {
+    background-color: #89b4fa;
+    color: #11111b;
+}

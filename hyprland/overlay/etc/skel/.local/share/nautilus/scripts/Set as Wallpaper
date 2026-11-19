@@ -1,0 +1,7 @@
+#!/bin/bash
+TARGET="${1:-$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS}"
+TARGET="${TARGET%%$'\n'*}"
+
+if [ -n "$TARGET" ] && [ -f "$TARGET" ]; then
+    /usr/bin/nabu-set-wallpaper "$TARGET"
+fi

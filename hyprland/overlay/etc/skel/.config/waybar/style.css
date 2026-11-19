@@ -14,11 +14,17 @@ window#waybar {
 #custom-launcher,
 #workspaces,
 #window,
+#custom-split,
+#custom-close,
 #clock,
 #custom-keyboard,
+#custom-rotate,
+#network,
+#bluetooth,
 #pulseaudio,
 #backlight,
 #battery,
+#tray,
 #custom-notification,
 #custom-power {
     background: rgba(30, 30, 46, 0.85);
@@ -33,6 +39,18 @@ window#waybar {
     font-size: 18px;
     color: #89b4fa;
     padding: 4px 12px;
+}
+
+#custom-split {
+    font-size: 15px;
+    color: #89b4fa;
+    padding: 4px 10px;
+}
+
+#custom-close {
+    font-size: 15px;
+    color: #f38ba8;
+    padding: 4px 10px;
 }
 
 #workspaces button {
@@ -55,6 +73,43 @@ window#waybar {
 #custom-keyboard {
     color: #a6e3a1;
     font-size: 16px;
+}
+
+#custom-rotate {
+    color: #89b4fa;
+    font-size: 16px;
+}
+
+#custom-rotate.locked {
+    color: #fab387;
+}
+
+#network {
+    color: #89b4fa;
+    font-size: 16px;
+    padding: 4px 12px;
+}
+
+#network.disconnected {
+    color: #f38ba8;
+}
+
+#bluetooth {
+    color: #89dceb;
+    font-size: 16px;
+    padding: 4px 12px;
+}
+
+#bluetooth.disabled {
+    color: #6c7086;
+}
+
+#bluetooth.connected {
+    color: #a6e3a1;
+}
+
+#tray {
+    padding: 4px 10px;
 }
 
 #pulseaudio {

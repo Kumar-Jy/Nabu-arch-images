@@ -730,7 +730,8 @@ jobs:
             fi
             sleep 5
           done
-          pacman -S --noconfirm hyprland hyprlock hypridle hyprpaper hyprcursor xdg-desktop-portal-hyprland waybar swaync kitty pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools brightnessctl ttf-jetbrains-mono ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji otf-font-awesome python-gobject python-dbus polkit-kde-agent sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup
+          pacman -S --noconfirm hyprland hyprlock hypridle hyprpaper hyprcursor xdg-desktop-portal-hyprland waybar swaync kitty pipewire pipewire-pulse pipewire-jack wireplumber pipewire-libcamera gst-plugin-pipewire gst-plugin-libcamera gst-plugins-good libcamera-tools brightnessctl ttf-jetbrains-mono ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji otf-font-awesome python-gobject python-dbus polkit-kde-agent sddm-nabu nabu-tablet-mode nabu-autobrightness camera-studio system-monitor nabu-torch stylus-popup nautilus gvfs file-roller blueman network-manager-applet starship fastfetch breeze-gtk breeze-cursors gtklock
+          pacman -S --noconfirm gtklock-virtkb-module || true
           pacman -S --noconfirm wvkbd || pacman -S --noconfirm --overwrite "/etc/xdg/*" oskb || true
           pacman -S --noconfirm rofi-wayland || pacman -S --noconfirm wofi
           pacman -S --noconfirm wlogout || true

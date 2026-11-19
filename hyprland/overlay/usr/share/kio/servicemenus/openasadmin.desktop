@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=inode/directory;
+Actions=openAsAdmin;
+X-KDE-Priority=TopLevel
+
+[Desktop Action openAsAdmin]
+Name=Open as Administrator
+Icon=system-lock-screen
+Exec=/usr/bin/dolphin admin://%f

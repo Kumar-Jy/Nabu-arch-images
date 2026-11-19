@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+BT_STATE=$(bluetoothctl show | grep -i "Powered:" | awk '{print $2}' || echo "no")
+if [ "$BT_STATE" = "yes" ]; then
+    bluetoothctl power off
+    notify-send "Bluetooth" "Bluetooth turned OFF"
+else
+    bluetoothctl power on
+    bluetoothctl --timeout 60 scan on >/dev/null 2>&1 &
+    notify-send "Bluetooth" "Bluetooth turned ON (Scanning for devices...)"
+fi

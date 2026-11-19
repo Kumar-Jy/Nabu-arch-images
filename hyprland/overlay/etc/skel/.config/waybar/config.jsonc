@@ -6,22 +6,28 @@
     "modules-left": [
         "custom/launcher",
         "hyprland/workspaces",
-        "hyprland/window"
+        "hyprland/window",
+        "custom/split",
+        "custom/close"
     ],
     "modules-center": [
         "clock"
     ],
     "modules-right": [
         "custom/keyboard",
+        "custom/rotate",
+        "network",
+        "bluetooth",
         "pulseaudio",
         "backlight",
         "battery",
+        "tray",
         "custom/notification",
         "custom/power"
     ],
     "custom/launcher": {
         "format": "",
-        "on-click": "pkill rofi || rofi -show drun -theme ~/.config/rofi/config.rasi",
+        "on-click": "pkill rofi || pkill wofi || rofi -show drun -theme ~/.config/rofi/config.rasi 2>/dev/null || wofi --show drun",
         "tooltip": false
     },
     "hyprland/workspaces": {
@@ -33,26 +39,85 @@
         "max-length": 40,
         "separate-outputs": true
     },
+    "custom/split": {
+        "format": "󰕰",
+        "on-click": "hyprctl dispatch 'hl.dsp.layout(\"togglesplit\")'",
+        "tooltip": "Toggle Split Direction (Horizontal / Vertical)"
+    },
+    "custom/close": {
+        "format": "󰅖",
+        "on-click": "hyprctl dispatch 'hl.dsp.window.close()'",
+        "tooltip": "Close active window"
+    },
     "clock": {
         "format": "{:%H:%M  •  %a, %b %d}",
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "on-click": "/usr/bin/nabu-calendar"
+    },
+    "network": {
+        "format-wifi": "{icon}",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰤮",
+        "format-icons": [
+            "󰤯",
+            "󰤟",
+            "󰤢",
+            "󰤥",
+            "󰤨"
+        ],
+        "tooltip-format-wifi": "Wi-Fi: {essid} ({signalStrength}%)\nIP: {ipaddr}",
+        "tooltip-format-ethernet": "Ethernet: {ipaddr}",
+        "tooltip-format-disconnected": "Wi-Fi Disconnected",
+        "on-click": "/usr/bin/nabu-wifi-menu",
+        "on-click-right": "/usr/bin/nabu-wifi-toggle"
+    },
+    "bluetooth": {
+        "format": "",
+        "format-disabled": "󰂲",
+        "format-connected": "󰂱",
+        "tooltip-format": "Bluetooth: {status}",
+        "tooltip-format-connected": "Bluetooth: {device_alias}",
+        "on-click": "/usr/bin/nabu-bluetooth-menu",
+        "on-click-right": "/usr/bin/nabu-bluetooth-toggle"
+    },
+    "tray": {
+        "icon-size": 20,
+        "spacing": 8
     },
     "custom/keyboard": {
         "format": "",
         "on-click": "/usr/bin/nabu-osk-toggle",
         "tooltip": false
     },
+    "custom/rotate": {
+        "format": "{}",
+        "return-type": "json",
+        "exec": "/usr/bin/nabu-rotate-status",
+        "on-click": "/usr/bin/nabu-rotate-toggle",
+        "signal": 8,
+        "interval": 2,
+        "tooltip": true
+    },
     "pulseaudio": {
         "format": "{icon} {volume}%",
         "format-muted": "󰝟",
         "format-icons": {
-            "default": ["󰕿", "󰖀", "󰕾"]
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
         },
         "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
     },
     "backlight": {
         "format": "{icon} {percent}%",
-        "format-icons": ["󰃞", "󰃟", "󰃠"],
+        "format-icons": [
+            "󰃞",
+            "󰃟",
+            "󰃠"
+        ],
+        "on-click": "swaync-client -t -sw",
         "on-scroll-up": "brightnessctl set +5%",
         "on-scroll-down": "brightnessctl set 5%-"
     },
@@ -64,7 +129,13 @@
         "format": "{icon} {capacity}%",
         "format-charging": "󰂄 {capacity}%",
         "format-plugged": "󰂄 {capacity}%",
-        "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"]
+        "format-icons": [
+            "󰁺",
+            "󰁼",
+            "󰁾",
+            "󰂀",
+            "󰁹"
+        ]
     },
     "custom/notification": {
         "tooltip": false,

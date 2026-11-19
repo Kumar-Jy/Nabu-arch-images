@@ -1,0 +1,30 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Minimal two-line prompt matching tablet aesthetic
+add_newline = false
+
+format = """
+╭─ $username  $directory$git_branch
+╰─$character """
+
+[username]
+show_always = true
+style_user = "white"
+style_root = "bold red"
+format = "[$user]($style)"
+
+[directory]
+style = "fg:#121212 bg:#dcdfe4"
+format = "[](fg:#dcdfe4)[  $path ]($style)[](fg:#dcdfe4)"
+truncation_length = 3
+truncation_symbol = "…/"
+home_symbol = "~"
+
+[git_branch]
+style = "bold purple"
+format = " on [$symbol$branch]($style)"
+symbol = " "
+
+[character]
+success_symbol = '[\)\)](white)'
+error_symbol = '[\)\)](red)'

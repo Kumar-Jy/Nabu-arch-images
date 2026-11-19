@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+LOCK_FILE="$RUNTIME_DIR/nabu-rotate.lock"
+
+if [ -f "$LOCK_FILE" ]; then
+    echo '{"text": "󰑐", "class": "locked", "tooltip": "Auto-Rotate: Locked (Click to unlock)"}'
+else
+    echo '{"text": "󰑟", "class": "unlocked", "tooltip": "Auto-Rotate: Enabled (Click to lock)"}'
+fi

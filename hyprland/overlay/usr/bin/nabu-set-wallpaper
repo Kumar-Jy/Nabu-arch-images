@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# nabu-set-wallpaper: set desktop and lockscreen wallpaper
+set -e
+
+WALLPAPER="$1"
+
+if [ -z "$WALLPAPER" ]; then
+    echo "Usage: nabu-set-wallpaper <image_path>" >&2
+    exit 1
+fi
+
+if [ ! -f "$WALLPAPER" ]; then
+    echo "Error: file '$WALLPAPER' not found." >&2
+    exit 1
+fi
+
+WALLPAPER="$(realpath "$WALLPAPER")"
+TARGET_USER="${SUDO_USER:-$(id -un)}"
+TARGET_UID="$(id -u "$TARGET_USER")"
+USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+
+# 1. Update hyprpaper.conf
+mkdir -p "$USER_HOME/.config/hypr"
+cat << CONF > "$USER_HOME/.config/hypr/hyprpaper.conf"
+preload = $WALLPAPER
+wallpaper = ,$WALLPAPER
+wallpaper = DSI-1,$WALLPAPER
+splash = false
+CONF
+chown -R "$TARGET_UID:$TARGET_UID" "$USER_HOME/.config/hypr/hyprpaper.conf"
+
+# 2. Update gtklock config
+mkdir -p "$USER_HOME/.config/gtklock"
+if [ -f "$USER_HOME/.config/gtklock/config.ini" ]; then
+    sed -i "s|^background=.*|background=$WALLPAPER|" "$USER_HOME/.config/gtklock/config.ini"
+else
+    cat << CONF > "$USER_HOME/.config/gtklock/config.ini"
+[main]
+gtk-theme=Adwaita-dark
+modules=/usr/lib/gtklock/virtkb-module.so
+background=$WALLPAPER
+time-format=%H:%M
+date-format=%A, %B %d
+CONF
+fi
+chown -R "$TARGET_UID:$TARGET_UID" "$USER_HOME/.config/gtklock"
+
+# Update system-wide default gtklock config if root
+if [ "$(id -u)" -eq 0 ] && [ -f /etc/gtklock/config.ini ]; then
+    sed -i "s|^background=.*|background=$WALLPAPER|" /etc/gtklock/config.ini 2>/dev/null || true
+fi
+
+# 3. Live update hyprpaper
+SIG=$(ls -td "/run/user/$TARGET_UID/hypr/"*_*_* 2>/dev/null | head -n1 | xargs -r basename || true)
+if [ -n "$SIG" ]; then
+    export HYPRLAND_INSTANCE_SIGNATURE="$SIG"
+    export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$TARGET_UID}"
+    
+    # Run as target user
+    if [ "$(id -u)" -eq 0 ]; then
+        su - "$TARGET_USER" -c "
+            export HYPRLAND_INSTANCE_SIGNATURE='$SIG'
+            export WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-wayland-1}'
+            export XDG_RUNTIME_DIR='/run/user/$TARGET_UID'
+            hyprctl hyprpaper wallpaper ',$WALLPAPER' 2>/dev/null || true
+            hyprctl hyprpaper wallpaper 'DSI-1,$WALLPAPER' 2>/dev/null || true
+        "
+    else
+        hyprctl hyprpaper wallpaper ",$WALLPAPER" 2>/dev/null || true
+        hyprctl hyprpaper wallpaper "DSI-1,$WALLPAPER" 2>/dev/null || true
+    fi
+fi
+
+# 4. Notify user
+if command -v notify-send >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+        su - "$TARGET_USER" -c "
+            export WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-wayland-1}'
+            export XDG_RUNTIME_DIR='/run/user/$TARGET_UID'
+            export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/$TARGET_UID/bus'
+            notify-send 'Wallpaper Changed' 'New wallpaper: $(basename "$WALLPAPER")' -i '$WALLPAPER' 2>/dev/null || true
+        "
+    else
+        notify-send "Wallpaper Changed" "New wallpaper: $(basename "$WALLPAPER")" -i "$WALLPAPER" 2>/dev/null || true
+    fi
+fi
+
+echo "Wallpaper successfully set to: $WALLPAPER"

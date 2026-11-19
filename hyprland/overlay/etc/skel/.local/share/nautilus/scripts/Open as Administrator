@@ -1,0 +1,18 @@
+#!/bin/bash
+TARGET="${1:-$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS}"
+
+if [ -z "$TARGET" ]; then
+    if [[ "$NAUTILUS_SCRIPT_CURRENT_URI" =~ ^file://(.*)$ ]]; then
+        TARGET="${BASH_REMATCH[1]}"
+    else
+        TARGET="$PWD"
+    fi
+fi
+
+if [ -f "$TARGET" ]; then
+    TARGET="$(dirname "$TARGET")"
+fi
+
+TARGET="$(realpath "$TARGET" 2>/dev/null || echo "$TARGET")"
+
+nautilus "admin://$TARGET" &

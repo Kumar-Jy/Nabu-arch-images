@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """
-nabu-hypr-rotate: Dynamic screen & touch orientation listener for Hyprland on Xiaomi Pad 5 (nabu)
-Connects to iio-sensor-proxy over system D-Bus and adjusts Hyprland transforms on the fly.
+nabu-hypr-rotate: 360° 4-Way Dynamic screen & touch orientation daemon for Hyprland on Xiaomi Pad 5 (nabu)
+Supports all 4 orientations:
+- Normal Portrait (0°)
+- Inverted Landscape (90°)
+- Inverted Portrait (180°)
+- Primary Landscape (270°)
+Includes smooth debouncing and rotation lock toggle support.
 """
+import os
 import sys
+import glob
+import json
 import subprocess
+import fcntl
 try:
     import dbus
     from dbus.mainloop.glib import DBusGMainLoop
@@ -12,50 +21,127 @@ try:
 except ImportError:
     sys.exit(0)
 
-# Native CSOT NT36523 panel is portrait (1600x2560)
-# Transform indices:
-# 0: Portrait (native)
-# 1: Landscape (90 deg clockwise) [Primary]
-# 2: Inverted Portrait (180 deg)
-# 3: Inverted Landscape (270 deg)
+# Ensure single instance
+_lock_file = None
+def ensure_single_instance():
+    global _lock_file
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    lock_path = os.path.join(runtime_dir, "nabu-hypr-rotate-daemon.lock")
+    try:
+        _lock_file = open(lock_path, "w")
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except Exception:
+        sys.exit(0)
+
+def is_rotation_locked():
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    return os.path.exists(os.path.join(runtime_dir, "nabu-rotate.lock"))
+
+# Full 360° 4-way rotation map for Xiaomi Pad 5 (native portrait 1600x2560 panel)
 ORIENTATION_MAP = {
-    "normal": 1,               # Landscape (Primary)
-    "bottom-up": 3,            # Inverted Landscape
-    "left-up": 2,              # Upside-down Portrait
-    "right-up": 0,             # Normal Portrait
+    "normal": 0,               # Normal Portrait (Vertical, 0°)
+    "left-up": 1,              # Inverted Landscape (Horizontal, 90° clockwise)
+    "bottom-up": 2,            # Inverted Portrait (Vertical, 180°)
+    "right-up": 3,             # Primary Landscape (Horizontal, 270° clockwise)
 }
 
-current_transform = 1
+current_transform = None
+_pending_timer = None
+_pending_transform = None
+
+def ensure_hyprland_env():
+    """Auto-discover HYPRLAND_INSTANCE_SIGNATURE if running in a systemd or clean environment"""
+    if "HYPRLAND_INSTANCE_SIGNATURE" not in os.environ:
+        runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+        hypr_dirs = glob.glob(os.path.join(runtime_dir, "hypr", "*_*_*"))
+        if hypr_dirs:
+            hypr_dirs.sort(key=os.path.getmtime, reverse=True)
+            os.environ["HYPRLAND_INSTANCE_SIGNATURE"] = os.path.basename(hypr_dirs[0])
+
+def get_hyprland_transform():
+    ensure_hyprland_env()
+    try:
+        res = subprocess.run(
+            ["hyprctl", "monitors", "-j"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1
+        )
+        data = json.loads(res.stdout)
+        if isinstance(data, list) and len(data) > 0:
+            return data[0].get("transform", None)
+    except Exception:
+        pass
+    return None
 
 def set_orientation(transform):
     global current_transform
-    if transform == current_transform:
-        return
     current_transform = transform
     try:
-        subprocess.run([
-            "hyprctl", "keyword", "monitor",
-            f"DSI-1,1600x2560@120,0x0,1.6,transform,{transform}"
-        ], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run([
-            "hyprctl", "keyword", "input:touchdevice:transform", str(transform)
-        ], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ensure_hyprland_env()
+        lua_cmd = (
+            f'hl.monitor({{ output = "DSI-1", mode = "1600x2560@120", position = "0x0", scale = 1.6, transform = {transform} }}); '
+            f'hl.config({{ input = {{ touchdevice = {{ transform = {transform}, output = "DSI-1" }}, tablet = {{ transform = {transform}, output = "DSI-1" }} }} }})'
+        )
+        subprocess.run(
+            ["hyprctl", "repl", lua_cmd],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
     except Exception:
         pass
+
+def _debounce_apply():
+    global _pending_timer, _pending_transform
+    _pending_timer = None
+    if _pending_transform is not None:
+        set_orientation(_pending_transform)
+        _pending_transform = None
+    return False
+
+def on_orientation_event(orient_str):
+    global _pending_timer, _pending_transform
+    if is_rotation_locked():
+        return
+    if orient_str not in ORIENTATION_MAP:
+        return
+    target_transform = ORIENTATION_MAP[orient_str]
+    # Check if Hyprland is already at target transform
+    if target_transform == current_transform and target_transform == get_hyprland_transform():
+        if _pending_timer:
+            GLib.source_remove(_pending_timer)
+            _pending_timer = None
+        return
+    _pending_transform = target_transform
+    if _pending_timer:
+        GLib.source_remove(_pending_timer)
+    # 250ms debounce for responsive but stable rotation
+    _pending_timer = GLib.timeout_add(250, _debounce_apply)
 
 def on_properties_changed(interface, changed, invalidated):
     if "AccelerometerOrientation" in changed:
         orient_str = str(changed["AccelerometerOrientation"])
-        if orient_str in ORIENTATION_MAP:
-            set_orientation(ORIENTATION_MAP[orient_str])
+        on_orientation_event(orient_str)
 
 def main():
+    ensure_single_instance()
     DBusGMainLoop(set_as_default=True)
     try:
         bus = dbus.SystemBus()
         proxy = bus.get_object("net.hadess.SensorProxy", "/net/hadess/SensorProxy")
         sensor_iface = dbus.Interface(proxy, "net.hadess.SensorProxy")
+        props_iface = dbus.Interface(proxy, "org.freedesktop.DBus.Properties")
+
         sensor_iface.ClaimAccelerometer()
+
+        try:
+            initial_orient = str(props_iface.Get("net.hadess.SensorProxy", "AccelerometerOrientation"))
+            if not is_rotation_locked() and initial_orient in ORIENTATION_MAP:
+                set_orientation(ORIENTATION_MAP[initial_orient])
+        except Exception:
+            pass
 
         bus.add_signal_receiver(
             on_properties_changed,

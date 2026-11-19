@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=image/jpeg;image/png;image/webp;image/bmp;image/svg+xml;image/heic;image/avif;
+Actions=SetAsWallpaper;
+
+[Desktop Action SetAsWallpaper]
+Name=Set as Wallpaper
+Icon=preferences-desktop-wallpaper
+Exec=/usr/bin/nabu-set-wallpaper %f

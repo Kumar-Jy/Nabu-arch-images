@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+WIFI_STATE=$(nmcli -fields WIFI g | tail -n 1 | tr -d '[:space:]')
+if [ "$WIFI_STATE" = "enabled" ]; then
+    nmcli radio wifi off
+    notify-send "Wi-Fi" "Wi-Fi turned OFF"
+else
+    nmcli radio wifi on
+    nmcli dev wifi rescan 2>/dev/null &
+    notify-send "Wi-Fi" "Wi-Fi turned ON (Scanning for networks...)"
+fi

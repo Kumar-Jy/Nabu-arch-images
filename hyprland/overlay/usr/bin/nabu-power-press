@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# nabu-power-press: Tablet power button handler for Xiaomi Pad 5 (nabu)
+# Toggles between (Lock + Screen Off) and (Screen On).
+
+TARGET_USER="${SUDO_USER:-$(id -un)}"
+TARGET_UID="$(id -u "$TARGET_USER")"
+RUNTIME_DIR="/run/user/$TARGET_UID"
+
+# Auto-discover Hyprland signature
+SIG=$(ls -td "$RUNTIME_DIR/hypr/"*_*_* 2>/dev/null | head -n1 | xargs -r basename || true)
+if [ -z "$SIG" ]; then
+    exit 0
+fi
+
+export HYPRLAND_INSTANCE_SIGNATURE="$SIG"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
+
+# Check DPMS status
+DPMS_ON=$(hyprctl monitors -j 2>/dev/null | grep -i '"dpmsStatus": true' || true)
+
+if [ -n "$DPMS_ON" ]; then
+    # Screen is ON: lock and turn display off
+    if ! pidof gtklock >/dev/null 2>&1; then
+        /usr/bin/nabu-lock &
+        sleep 0.2
+    fi
+    hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
+else
+    # Screen is OFF: turn display on
+    hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+fi

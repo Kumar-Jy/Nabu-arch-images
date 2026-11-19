@@ -1,0 +1,14 @@
+[Unit]
+Description=Dynamic Screen & Touch Rotation Daemon for Hyprland on Xiaomi Pad 5 (nabu)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nabu-hypr-rotate
+Restart=on-failure
+RestartSec=3s
+Slice=background.slice
+
+[Install]
+WantedBy=graphical-session.target

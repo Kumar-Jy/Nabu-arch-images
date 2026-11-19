@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# nabu-wifi-menu: Automatic Wi-Fi Scanner & Manager for Xiaomi Pad 5
+# ==============================================================================
+
+set -eo pipefail
+
+menu_run() {
+    local prompt="$1"
+    local is_pass="$2"
+    if command -v wofi >/dev/null 2>&1; then
+        if [ "$is_pass" = "password" ]; then
+            wofi --dmenu -p "$prompt" -i -G -P -W 450 -H 160 2>/dev/null || true
+        else
+            wofi --dmenu -p "$prompt" -i -G -W 520 -H 460 2>/dev/null || true
+        fi
+    elif command -v rofi >/dev/null 2>&1 && [ -n "$DISPLAY" ]; then
+        if [ "$is_pass" = "password" ]; then
+            rofi -dmenu -password -p "$prompt" -i 2>/dev/null || true
+        else
+            rofi -dmenu -p "$prompt" -i 2>/dev/null || true
+        fi
+    fi
+}
+
+# Ensure NetworkManager is running
+if ! systemctl is-active --quiet NetworkManager; then
+    notify-send -u critical "Wi-Fi" "NetworkManager is not running."
+    exit 1
+fi
+
+# Get Wi-Fi radio state
+WIFI_STATE=$(nmcli -fields WIFI g | tail -n 1 | tr -d '[:space:]')
+
+# If Wi-Fi is disabled, show quick toggle to enable
+if [ "$WIFI_STATE" != "enabled" ]; then
+    CHOSEN=$(printf "󰖪  Wi-Fi is OFF (Tap to Turn ON)\n  Advanced Network Settings" | menu_run "󰖪 Wi-Fi" "normal")
+    if [[ "$CHOSEN" =~ "Turn ON" ]]; then
+        nmcli radio wifi on
+        notify-send "Wi-Fi" "Turning Wi-Fi ON and scanning for networks..."
+        sleep 1.5
+        exec "$0"
+    elif [[ "$CHOSEN" =~ "Advanced" ]]; then
+        nm-connection-editor &
+    fi
+    exit 0
+fi
+
+# Auto-scan: Trigger background rescan for continuous freshness
+nmcli dev wifi rescan 2>/dev/null &
+
+# Fetch network list
+get_networks() {
+    nmcli -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list | awk -F':' '
+    {
+        in_use = $1;
+        signal = $2;
+        security = $3;
+        ssid = "";
+        for (i = 4; i <= NF; i++) {
+            ssid = (i == 4) ? $i : ssid ":" $i;
+        }
+        if (ssid != "" && ssid != "--") {
+            if (!(ssid in max_sig) || signal > max_sig[ssid]) {
+                max_sig[ssid] = signal;
+                sec[ssid] = security;
+                active[ssid] = (in_use == "*") ? 1 : 0;
+            }
+        }
+    }
+    END {
+        for (s in max_sig) {
+            print active[s] "|" max_sig[s] "|" sec[s] "|" s;
+        }
+    }' | sort -t'|' -k1,1nr -k2,2nr
+}
+
+PARSED_NETWORKS=$(get_networks)
+
+# If no networks cached yet, wait briefly for auto-scan to populate
+if [ -z "$PARSED_NETWORKS" ]; then
+    sleep 1.2
+    PARSED_NETWORKS=$(get_networks)
+fi
+
+OPTIONS=()
+OPTIONS+=("󰖩  Wi-Fi is ON (Tap to Turn OFF)")
+
+while IFS='|' read -r is_active signal security ssid; do
+    [ -z "$ssid" ] && continue
+
+    if [ "$signal" -ge 75 ]; then
+        SIG_ICON="󰤨"
+    elif [ "$signal" -ge 50 ]; then
+        SIG_ICON="󰤥"
+    elif [ "$signal" -ge 25 ]; then
+        SIG_ICON="󰤢"
+    else
+        SIG_ICON="󰤟"
+    fi
+
+    if [ -n "$security" ] && [ "$security" != "--" ]; then
+        SEC_ICON=""
+    else
+        SEC_ICON="󰌿"
+    fi
+
+    if [ "$is_active" -eq 1 ]; then
+        OPTIONS+=("$SIG_ICON  $ssid  [Connected] (${signal}%)  $SEC_ICON")
+    else
+        OPTIONS+=("$SIG_ICON  $ssid  (${signal}%)  $SEC_ICON")
+    fi
+done <<< "$PARSED_NETWORKS"
+
+OPTIONS+=("󰌘  Connect to Hidden Network...")
+OPTIONS+=("  Advanced Network Settings")
+
+CHOSEN=$(printf '%s\n' "${OPTIONS[@]}" | menu_run "󰤨 Wi-Fi Networks" "normal")
+
+[ -z "$CHOSEN" ] && exit 0
+
+if [[ "$CHOSEN" =~ "Turn OFF" ]]; then
+    nmcli radio wifi off
+    notify-send "Wi-Fi" "Wi-Fi turned OFF"
+    exit 0
+elif [[ "$CHOSEN" =~ "Advanced Network Settings" ]]; then
+    nm-connection-editor &
+    exit 0
+elif [[ "$CHOSEN" =~ "Connect to Hidden Network" ]]; then
+    HIDDEN_SSID=$(menu_run "SSID: " "normal")
+    [ -z "$HIDDEN_SSID" ] && exit 0
+    HIDDEN_PASS=$(menu_run "Password: " "password")
+    if [ -n "$HIDDEN_PASS" ]; then
+        nmcli dev wifi connect "$HIDDEN_SSID" password "$HIDDEN_PASS" hidden yes && notify-send "Wi-Fi" "Connected to $HIDDEN_SSID" || notify-send -u critical "Wi-Fi" "Failed to connect to $HIDDEN_SSID"
+    else
+        nmcli dev wifi connect "$HIDDEN_SSID" hidden yes && notify-send "Wi-Fi" "Connected to $HIDDEN_SSID" || notify-send -u critical "Wi-Fi" "Failed to connect to $HIDDEN_SSID"
+    fi
+    exit 0
+fi
+
+CHOSEN_CLEAN=$(echo "$CHOSEN" | sed -E 's/^[󰤨󰤥󰤢󰤟󰤯 ]+//')
+
+if [[ "$CHOSEN" =~ "\[Connected\]" ]]; then
+    TARGET_SSID=$(echo "$CHOSEN_CLEAN" | sed -E 's/ +\[Connected\].*//')
+    ACTION=$(printf "󰌙 Disconnect\n󰆴 Forget Network\n󰅖 Cancel" | menu_run "$TARGET_SSID" "normal")
+    if [[ "$ACTION" =~ "Disconnect" ]]; then
+        nmcli connection down "$TARGET_SSID" 2>/dev/null || nmcli dev disconnect wlan0 2>/dev/null || true
+        notify-send "Wi-Fi" "Disconnected from $TARGET_SSID"
+    elif [[ "$ACTION" =~ "Forget Network" ]]; then
+        nmcli connection delete id "$TARGET_SSID" 2>/dev/null || true
+        notify-send "Wi-Fi" "Forgot network $TARGET_SSID"
+    fi
+    exit 0
+else
+    TARGET_SSID=$(echo "$CHOSEN_CLEAN" | sed -E 's/ +\([0-9]+%\).*//')
+    
+    if nmcli -t -f NAME connection show | grep -Fxq "$TARGET_SSID"; then
+        notify-send "Wi-Fi" "Connecting to $TARGET_SSID..."
+        if nmcli connection up "$TARGET_SSID"; then
+            notify-send "Wi-Fi" "Successfully connected to $TARGET_SSID"
+        else
+            notify-send -u critical "Wi-Fi" "Connection failed. Please check password or range."
+        fi
+        exit 0
+    fi
+
+    if [[ "$CHOSEN" =~ "" ]]; then
+        PASS=$(menu_run "Enter password for $TARGET_SSID: " "password")
+        [ -z "$PASS" ] && exit 0
+        notify-send "Wi-Fi" "Connecting to $TARGET_SSID..."
+        if nmcli dev wifi connect "$TARGET_SSID" password "$PASS"; then
+            notify-send "Wi-Fi" "Successfully connected to $TARGET_SSID"
+        else
+            notify-send -u critical "Wi-Fi" "Failed to connect to $TARGET_SSID. Incorrect password?"
+        fi
+    else
+        notify-send "Wi-Fi" "Connecting to $TARGET_SSID..."
+        if nmcli dev wifi connect "$TARGET_SSID"; then
+            notify-send "Wi-Fi" "Successfully connected to $TARGET_SSID"
+        else
+            notify-send -u critical "Wi-Fi" "Failed to connect to $TARGET_SSID"
+        fi
+    fi
+fi
