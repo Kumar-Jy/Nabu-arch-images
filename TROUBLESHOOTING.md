@@ -102,7 +102,7 @@ mount -t devpts devpts /linux/dev/pts
 ln -sf /proc/self/fd /linux/dev/fd
 
 # Update cmdline and fstab to target userdata and cust
-echo "root=PARTLABEL=userdata rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off" > /linux/etc/cmdline.d/root.conf
+echo "root=PARTLABEL=userdata rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off mem_sleep_default=s2idle" > /linux/etc/cmdline.d/root.conf
 sed -i 's/PARTLABEL=linux/PARTLABEL=userdata/' /linux/etc/fstab
 sed -i 's/PARTLABEL=esp/PARTLABEL=cust/' /linux/etc/fstab
 

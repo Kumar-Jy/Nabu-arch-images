@@ -4,6 +4,13 @@ All notable changes to **Arch Linux ARM for Xiaomi Pad 5 (nabu)** are documented
 
 ---
 
+## [Build 2026-11-20]
+
+### ⚙️ Kernel & Boot
+- **Sleep:** Defaulted suspend mode to `s2idle` via `mem_sleep_default=s2idle`, avoiding auto-wake on `deep`.
+
+---
+
 ## [Build 2026-11-19]
 
 ### ⚙️ Kernel & Boot

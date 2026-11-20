@@ -86,7 +86,7 @@ if [ ! -f /etc/cmdline.d/root.conf ]; then
     mkdir -p /etc/cmdline.d
     DETECTED_ROOT=$(lsblk -no PARTLABEL "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null || true)
     ROOT_PARTLABEL="${DETECTED_ROOT:-linux}"
-    printf 'root=PARTLABEL=%s rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off\n' "$ROOT_PARTLABEL" > /etc/cmdline.d/root.conf
+    printf 'root=PARTLABEL=%s rw systemd.gpt_auto=no fbcon=rotate:1 fw_devlink=permissive acpi=off mem_sleep_default=s2idle\n' "$ROOT_PARTLABEL" > /etc/cmdline.d/root.conf
 else
     sed -i -e 's/ modprobe.blacklist=venus_core,qcom_iris//' \
            -e 's/ module_blacklist=venus_core,qcom_iris//' \
@@ -96,6 +96,11 @@ else
     fi
     if ! grep -q 'fw_devlink=permissive' /etc/cmdline.d/root.conf; then
         sed -i 's/$/ fw_devlink=permissive/' /etc/cmdline.d/root.conf
+    fi
+    if ! grep -q 'mem_sleep_default=' /etc/cmdline.d/root.conf; then
+        sed -i 's/$/ mem_sleep_default=s2idle/' /etc/cmdline.d/root.conf
+    else
+        sed -i -E 's/mem_sleep_default=[^[:space:]]+/mem_sleep_default=s2idle/g' /etc/cmdline.d/root.conf
     fi
 fi
 
